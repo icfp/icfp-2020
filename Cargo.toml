@@ -11,11 +11,16 @@ name = "lib"
 name = "app"
 path = "app/main.rs"
 
+[[bin]]
+name = "decoder"
+path = "app/decoder.rs"
+
 [dependencies]
 tokio = { version = "0.2.21", features = ["macros"] }
 hyper = "0.13.5"
 http-body = "0.3.1"
 hound = "3.4.0"
+png = "0.16.6"
 
 [dev-dependencies]
 
