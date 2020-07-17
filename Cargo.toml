@@ -13,7 +13,11 @@ path = "app/main.rs"
 
 [[bin]]
 name = "decoder"
-path = "app/decoder.rs"
+path = "app/tools/decoder.rs"
+
+[[bin]]
+name = "decoder2"
+path = "app/tools/decoder2.rs"
 
 [dependencies]
 tokio = { version = "0.2.21", features = ["macros"] }
@@ -22,6 +26,8 @@ http-body = "0.3.1"
 hound = "3.4.0"
 png = "0.16.6"
 reqwest = "0.10.6"
+image = "0.23.6"
+lazy_static = "1.4.0"
 
 [dev-dependencies]
 
