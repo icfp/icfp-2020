@@ -7,6 +7,21 @@ fn parse_assignment() {
 
     let map = parse_as_lines(":1029 = ap ap cons 7 ap ap cons 123229502148636 nil");
 
+    use crate::ast::Identifier::*;
+    use crate::ast::Symbol::*;
+    //assert_eq!({Name(":1029".to_string()): List([Ap, Ap, Cons, Lit(7), Ap, Ap, Cons, Lit(123229502148636), Nil])}, map)
+    println!("{:?}", map);
+}
+
+#[test]
+fn parse_eq() {
+    // https://pest.rs/book/examples/csv.html#writing-the-parser
+
+    let map = parse_as_lines("t = ap ap eq :0 :0");
+
+    use crate::ast::Identifier::*;
+    use crate::ast::Symbol::*;
+    //assert_eq!({Name(":1029".to_string()): List([Ap, Ap, Cons, Lit(7), Ap, Ap, Cons, Lit(123229502148636), Nil])}, map)
     println!("{:?}", map);
 }
 

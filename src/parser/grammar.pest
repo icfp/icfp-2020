@@ -7,8 +7,8 @@
 // Set whitespace
 WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
 
-number = { ASCII_DIGIT+ }
-identifier = { ASCII_ALPHA ~ ASCII_ALPHANUMERIC* }
+number = @{ ASCII_DIGIT+ }
+identifier = @{ ASCII_ALPHA ~ ASCII_ALPHANUMERIC* }
 
 nil = { "nil" }
 
@@ -22,8 +22,9 @@ named_function = { identifier ~ "=" ~ var }
 ap = { "ap"  }
 cons = { "cons" }
 neg = { "neg" }
+eq = { "eq" }
 
-symbol = _{ ap | cons | var | number | nil }
+symbol = _{ ap | cons | var | number | nil | eq }
 
 id = { var | identifier }
 assignment = { id ~ "=" ~ symbol+ }

@@ -20,30 +20,40 @@ fn parse_as_lines(input: &str) -> HashMap<Identifier, Symbol> {
             .unwrap();
 
         let assignment: Pairs<'_, _> = parsed_line.into_inner();
-        let ass = assignment.peek().unwrap().into_inner();
+        let assignment = assignment.peek().unwrap().into_inner();
 
-        let id = ass.peek().unwrap();
-        dbg!(id.as_str());
+        let id = assignment.peek().unwrap();
+        let id = id.into_inner().peek().unwrap();
 
-        let symbols: Vec<Symbol> = ass
+        let id = match id.as_rule() {
+            Rule::var => {
+                Identifier::Var(usize::from_str(id.into_inner().peek().unwrap().as_str()).unwrap())
+            }
+            Rule::identifier => Identifier::Name(id.as_str().to_string()),
+            _ => unimplemented!("Invalid variable id {:?}", id),
+        };
+
+        dbg!(&id);
+
+        let symbols: Vec<Symbol> = assignment
             .skip(1)
             .map(|pair| match pair.as_rule() {
                 Rule::ap => Symbol::Ap,
                 Rule::var => {
-                    Symbol::Var(usize::from_str(&pair.into_inner().as_str()[1..]).unwrap())
+                    let value = pair.into_inner().as_str();
+                    Symbol::Var(usize::from_str(&value).unwrap())
                 }
                 Rule::cons => Symbol::Cons,
-                Rule::number => Symbol::Lit(i64::from_str(dbg!(pair.as_str().trim())).unwrap()),
+                Rule::number => Symbol::Lit(i64::from_str(pair.as_str()).unwrap()),
                 Rule::nil => Symbol::Nil,
+                Rule::eq => Symbol::Eq,
                 _ => unimplemented!("Unhandled Pair {:?}", pair),
             })
             .collect();
+
         dbg!(&symbols);
 
-        map.insert(
-            Identifier::Name(id.as_str().to_string()),
-            Symbol::List(symbols),
-        );
+        map.insert(id, Symbol::List(symbols));
     }
 
     map
