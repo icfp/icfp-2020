@@ -5,6 +5,12 @@ use std::collections::{HashMap, VecDeque};
 
 type BSymbol = Box<Symbol>;
 
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
+pub enum Identifier {
+    Name(String),
+    Var(usize),
+}
+
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Symbol {
     Lit(i64),          // 1-3
@@ -12,8 +18,7 @@ pub enum Symbol {
     Inc,               // 5
     Dec,               // 6
     Add,               // 7
-    Get(usize),        // 8
-    Set(usize),        // 8
+    Var(usize),        // 8
     Mul,               // 9
     Div,               // 10
     T,                 // 11 & 21
@@ -35,10 +40,10 @@ pub enum Symbol {
     Nil,               // 28
     IsNil,             // 29
     List(Vec<Symbol>), // 30
-    // 31 .. vec = alias for cons that looks nice in “vector” usage context.
-    Draw,         // 32
-    Checkerboard, // 33
-    MultipleDraw, // 34
+    Vector,            // 31 .. vec = alias for cons that looks nice in “vector” usage context.
+    Draw,              // 32
+    Checkerboard,      // 33
+    MultipleDraw,      // 34
     // 35 = modulate list, doesn't seem to map to an operation
     // 36 = send 0:
     //   :1678847

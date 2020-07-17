@@ -1,0 +1,31 @@
+// Helpful stuff:
+//  - https://pest.rs/book/grammars/built-ins.html
+//  - try online https://pest.rs/#editor
+//  - Modifiers (_@$!) https://docs.rs/pest_derive/2.1.0/pest_derive/#modifiers
+// Example: https://github.com/Keats/tera/tree/master/src/parser
+
+// Set whitespace
+WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
+
+number = { ASCII_DIGIT+ }
+identifier = { ASCII_ALPHA ~ ASCII_ALPHANUMERIC* }
+
+nil = { "nil" }
+
+// :1338
+var = { ":" ~ number }
+
+// galaxy = :1338
+named_function = { identifier ~ "=" ~ var }
+
+// Operators
+ap = { "ap"  }
+cons = { "cons" }
+neg = { "neg" }
+
+symbol = _{ ap | cons | var | number | nil }
+
+id = { var | identifier }
+assignment = { id ~ "=" ~ symbol+ }
+
+line = { SOI ~ assignment ~ EOI }
