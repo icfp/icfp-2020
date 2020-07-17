@@ -2,85 +2,91 @@
 
 use std::cmp::max;
 
+type BSymbol = Box<Symbol>;
+
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Symbol {
-    Number(i16),                              // 1-3
-    Eq(Box<Symbol>, Box<Symbol>),             // 4
-    Inc(Box<Symbol>),                         // 5
-    Dec(Box<Symbol>),                         // 6
-    Add(Box<Symbol>, Box<Symbol>),            // 7
-    Var(usize),                               // 8
-    Mul(Box<Symbol>, Box<Symbol>),            // 9
-    Div(Box<Symbol>, Box<Symbol>),            // 10
-    T(Box<Symbol>, Box<Symbol>),              // 11 & 21
-    F(Box<Symbol>, Box<Symbol>),              // 11 & 22
-    Lt(Box<Symbol>, Box<Symbol>),             // 12
-    Mod(Box<Symbol>),                         // 13
-    Dem(Box<Symbol>),                         // 14
-    Send(Box<Symbol>),                        // 15
-    Neg(Box<Symbol>),                         // 16
-    Ap(Box<Symbol>, Box<Symbol>),             // 17
-    S(Box<Symbol>, Box<Symbol>, Box<Symbol>), // 18
-    C(Box<Symbol>, Box<Symbol>, Box<Symbol>), // 19
-    B(Box<Symbol>, Box<Symbol>, Box<Symbol>), // 20
-    Pwr2(Box<Symbol>),                        // 23
-    I(Box<Symbol>),                           // 24
+    Lit(i64),          // 1-3
+    Eq,                // 4
+    Inc,               // 5
+    Dec,               // 6
+    Add,               // 7
+    Var(usize),        // 8
+    Mul,               // 9
+    Div,               // 10
+    T,                 // 11 & 21
+    F,                 // 11 & 22
+    Lt,                // 12
+    Mod,               // 13
+    Dem,               // 14
+    Send,              // 15
+    Neg,               // 16
+    Ap,                // 17
+    S,                 // 18
+    C,                 // 19
+    B,                 // 20
+    Pwr2,              // 23
+    I,                 // 24
+    Cons,              // 25
+    Car,               // 26
+    Cdr,               // 27
+    Nil,               // 28
+    IsNil,             // 29
+    List(Vec<Symbol>), // 30
+    // 31 .. vec = alias for cons that looks nice in “vector” usage context.
+    Draw,         // 32
+    Checkerboard, // 33
+    MultipleDraw, // 34
+    // 35 = modulate list, doesn't seem to map to an operation
+    // 36 = send 0:
+    //   :1678847
+    //   ap send ( 0 )   =   ( 1 , :1678847 )
+    If0,      // 37
+    Interact, // 38
+    // 39 = interaction protocol
+    StatelessDraw,
 }
 
-pub fn eval_tree(tree: Symbol) -> i64 {
+pub fn eval_instructions(tree: &[Symbol]) -> Symbol {
     let len = max_vars(&tree);
-    let mut vars = vec![0 as i64; len];
+    let mut vars = vec![Symbol::Nil; len];
 
-    eval(tree, &mut vars)
+    eval(tree, &mut vars).0.clone()
 }
 
-fn max_vars(tree: &Symbol) -> usize {
-    match tree {
-        Symbol::Number(_) => 0,
-        Symbol::Eq(x, y) => max(max_vars(x), max_vars(y)),
-        Symbol::Inc(x) => max_vars(x),
-        Symbol::Dec(x) => max_vars(x),
-        Symbol::Add(x, _) => max_vars(x),
-        Symbol::Var(x) => *x,
-        Symbol::Mul(x, y) => max(max_vars(x), max_vars(y)),
-        Symbol::Div(_, _) => unimplemented!("Div is not implemented"),
-        Symbol::T(_, _) => unimplemented!("T is not implemented"),
-        Symbol::F(_, _) => unimplemented!("F is not implemented"),
-        Symbol::Lt(_, _) => unimplemented!("Lt is not implemented"),
-        Symbol::Mod(_) => unimplemented!("Mod is not implemented"),
-        Symbol::Dem(_) => unimplemented!("Dem is not implemented"),
-        Symbol::Send(_) => unimplemented!("Send is not implemented"),
-        Symbol::Neg(_) => unimplemented!("Neg is not implemented"),
-        Symbol::Ap(_, _) => unimplemented!("Ap is not implemented"),
-        Symbol::S(_, _, _) => unimplemented!("S is not implemented"),
-        Symbol::C(_, _, _) => unimplemented!("C is not implemented"),
-        Symbol::B(_, _, _) => unimplemented!("B is not implemented"),
-        Symbol::Pwr2(_) => unimplemented!("Pwr2 is not implemented"),
-        Symbol::I(_) => unimplemented!("I is not implemented"),
+fn max_vars(instructions: &[Symbol]) -> usize {
+    instructions.iter().fold(0 as usize, |acc, el| match el {
+        Symbol::Var(idx) => max(*idx, acc),
+        _ => acc,
+    })
+}
+
+fn eval<'a>(instructions: &'a [Symbol], vars: &mut Vec<Symbol>) -> (Symbol, &'a [Symbol]) {
+    let (op, rest) = instructions.split_first().unwrap();
+    match op {
+        Symbol::Lit(_) => (op.clone(), rest),
+        Symbol::Eq => {
+            let (lhs, rest0) = eval(rest, vars);
+            let (rhs, rest1) = eval(rest0, vars);
+            (if lhs == rhs { Symbol::T } else { Symbol::F }, rest1)
+        }
+        _ => unimplemented!("{0:?} is not implemented", op),
     }
 }
 
-fn eval(tree: Symbol, vars: &mut Vec<i64>) -> i64 {
-    match tree {
-        Symbol::Number(i) => i as i64,
-        Symbol::Eq(x, y) => (eval(*x, vars) == eval(*y, vars)) as i64,
-        Symbol::Inc(x) => eval(*x, vars) + 1,
-        Symbol::Dec(x) => eval(*x, vars) - 1,
-        Symbol::Add(x, y) => eval(*x, vars) + eval(*y, vars),
-        Symbol::Var(x) => vars[x],
-        Symbol::Mul(x, y) => eval(*x, vars) * eval(*y, vars),
-        Symbol::Div(_, _) => unimplemented!("Div is not implemented"),
-        Symbol::T(_, _) => unimplemented!("T is not implemented"),
-        Symbol::F(_, _) => unimplemented!("F is not implemented"),
-        Symbol::Lt(_, _) => unimplemented!("Lt is not implemented"),
-        Symbol::Mod(_) => unimplemented!("Mod is not implemented"),
-        Symbol::Dem(_) => unimplemented!("Dem is not implemented"),
-        Symbol::Send(_) => unimplemented!("Send is not implemented"),
-        Symbol::Neg(_) => unimplemented!("Neg is not implemented"),
-        Symbol::Ap(_, _) => unimplemented!("Ap is not implemented"),
-        Symbol::S(_, _, _) => unimplemented!("S is not implemented"),
-        Symbol::C(_, _, _) => unimplemented!("C is not implemented"),
-        Symbol::B(_, _, _) => unimplemented!("B is not implemented"),
-        Symbol::Pwr2(_) => unimplemented!("Pwr2 is not implemented"),
-        Symbol::I(_) => unimplemented!("I is not implemented"),
+#[cfg(test)]
+mod tests {
+    use crate::ast::{eval_instructions, Symbol};
+
+    #[test]
+    fn equality() {
+        let res = eval_instructions(&[Symbol::Eq, Symbol::Lit(1), Symbol::Lit(1)]);
+        assert_eq!(res, Symbol::T);
+    }
+
+    #[test]
+    fn inequality() {
+        let res = eval_instructions(&[Symbol::Eq, Symbol::Lit(1), Symbol::Lit(2)]);
+        assert_eq!(res, Symbol::F);
     }
 }
