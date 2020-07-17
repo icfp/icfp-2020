@@ -1,5 +1,5 @@
-use hound;
 use crate::ast::Symbol;
+use hound;
 
 fn decode(filename: &str) -> hound::Result<Symbol> {
     let reader = hound::WavReader::open(filename)?;
