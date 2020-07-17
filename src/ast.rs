@@ -10,6 +10,20 @@ pub enum Symbol {
     Add(Box<Symbol>, Box<Symbol>), // 7
     Var(usize), // 8
     Mul(Box<Symbol>, Box<Symbol>), // 9
+    Div(Box<Symbol>, Box<Symbol>), // 10
+    T(Box<Symbol>, Box<Symbol>), // 11 & 21
+    F(Box<Symbol>, Box<Symbol>), // 11 & 22
+    Lt(Box<Symbol>, Box<Symbol>), // 12
+    Mod(Box<Symbol>), // 13
+    Dem(Box<Symbol>), // 14
+    Send(Box<Symbol>), // 15
+    Neg(Box<Symbol>), // 16
+    Ap(Box<Symbol>, Box<Symbol>), // 17
+    S(Box<Symbol>, Box<Symbol>, Box<Symbol>), // 18
+    C(Box<Symbol>, Box<Symbol>, Box<Symbol>), // 19
+    B(Box<Symbol>, Box<Symbol>, Box<Symbol>), // 20
+    Pwr2(Box<Symbol>), // 23
+    I(Box<Symbol>), // 24
 }
 
 pub fn eval_tree(tree: Symbol) -> i64 {
