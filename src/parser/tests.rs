@@ -1,5 +1,18 @@
-use crate::parser::{parse_as_lines, ProgramParser, Rule};
 use pest::Parser;
+
+use crate::parser::{parse_as_lines, ProgramParser, Rule};
+
+macro_rules! map (
+    { $($key:expr => $value:expr),+ } => {
+        {
+            let mut m = ::std::collections::HashMap::new();
+            $(
+                m.insert($key, $value);
+            )+
+            m
+        }
+     };
+);
 
 #[test]
 fn parse_assignment() {
@@ -7,9 +20,12 @@ fn parse_assignment() {
 
     let map = parse_as_lines(":1029 = ap ap cons 7 ap ap cons 123229502148636 nil");
 
-    use crate::ast::Identifier::*;
+    use crate::ast::Identifier;
     use crate::ast::Symbol::*;
-    //assert_eq!({Name(":1029".to_string()): List([Ap, Ap, Cons, Lit(7), Ap, Ap, Cons, Lit(123229502148636), Nil])}, map)
+    let expected = map!(
+        Identifier::Var(1029) => List(vec![Ap, Ap, Cons, Lit(7), Ap, Ap, Cons, Lit(123229502148636), Nil])
+    );
+    assert_eq!(expected, map);
     println!("{:?}", map);
 }
 
@@ -19,9 +35,14 @@ fn parse_eq() {
 
     let map = parse_as_lines("t = ap ap eq :0 :0");
 
-    use crate::ast::Identifier::*;
+    use crate::ast::Identifier;
     use crate::ast::Symbol::*;
-    //assert_eq!({Name(":1029".to_string()): List([Ap, Ap, Cons, Lit(7), Ap, Ap, Cons, Lit(123229502148636), Nil])}, map)
+    let expected = map!(
+        Identifier::Name("t".to_string()) => List(vec![Ap, Ap, Eq, Var(0), Var(0)])
+    );
+
+    assert_eq!(expected, map);
+
     println!("{:?}", map);
 }
 
