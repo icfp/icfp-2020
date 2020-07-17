@@ -47,6 +47,7 @@ fn parse_as_lines(input: &str) -> HashMap<Identifier, Symbol> {
                 Rule::number => Symbol::Lit(i64::from_str(pair.as_str()).unwrap()),
                 Rule::nil => Symbol::Nil,
                 Rule::eq => Symbol::Eq,
+                Rule::modulate => Symbol::Mod,
                 _ => unimplemented!("Unhandled Pair {:?}", pair),
             })
             .collect();

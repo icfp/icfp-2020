@@ -25,6 +25,7 @@ fn parse_assignment() {
     let expected = map!(
         Identifier::Var(1029) => List(vec![Ap, Ap, Cons, Lit(7), Ap, Ap, Cons, Lit(123229502148636), Nil])
     );
+
     assert_eq!(expected, map);
     println!("{:?}", map);
 }
@@ -42,10 +43,40 @@ fn parse_eq() {
     );
 
     assert_eq!(expected, map);
-
     println!("{:?}", map);
 }
 
+#[test]
+fn parse_mod() {
+    // https://pest.rs/book/examples/csv.html#writing-the-parser
+
+    let map = parse_as_lines(":0 = ap mod 0");
+
+    use crate::ast::Identifier;
+    use crate::ast::Symbol::*;
+    let expected = map!(
+        Identifier::Var(0) => List(vec![Ap, Mod, Lit(0)])
+    );
+
+    assert_eq!(expected, map);
+    println!("{:?}", map);
+}
+
+#[test]
+fn parse_mod_with_negative() {
+    // https://pest.rs/book/examples/csv.html#writing-the-parser
+
+    let map = parse_as_lines(":0 = ap mod -10");
+
+    use crate::ast::Identifier;
+    use crate::ast::Symbol::*;
+    let expected = map!(
+        Identifier::Var(0) => List(vec![Ap, Mod, Lit(-10)])
+    );
+
+    assert_eq!(expected, map);
+    println!("{:?}", map);
+}
 // 5
 // 11
 // 21

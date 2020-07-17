@@ -7,7 +7,7 @@
 // Set whitespace
 WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
 
-number = @{ ASCII_DIGIT+ }
+number = @{ "-"? ~ ASCII_DIGIT+ }
 identifier = @{ ASCII_ALPHA ~ ASCII_ALPHANUMERIC* }
 
 nil = { "nil" }
@@ -23,8 +23,9 @@ ap = { "ap"  }
 cons = { "cons" | "vec" }
 neg = { "neg" }
 eq = { "eq" }
+modulate = { "mod" }
 
-symbol = _{ ap | cons | var | number | nil | eq }
+symbol = _{ ap | cons | var | number | nil | eq | modulate }
 
 id = { var | identifier }
 assignment = { id ~ "=" ~ symbol+ }

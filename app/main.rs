@@ -16,7 +16,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     let client = AlienClient::new(server_url, player_key);
 
-    match client.echo("").await {
+    match client.echo(player_key).await {
         Ok(res) => match res.status() {
             StatusCode::OK => {
                 print!("Server response: ");
