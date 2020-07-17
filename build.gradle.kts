@@ -1,6 +1,7 @@
 plugins {
     kotlin("jvm") version "1.3.72"
     jacoco
+    id("com.github.johnrengelman.shadow") version "6.0.0"
 }
 
 group = "org.example"
@@ -23,6 +24,12 @@ tasks {
 
     compileTestKotlin {
         kotlinOptions.jvmTarget = "11"
+    }
+}
+
+tasks.jar {
+    manifest {
+        attributes(mapOf("Main-Class" to "com.godaddy.icfp2020.Application"))
     }
 }
 
