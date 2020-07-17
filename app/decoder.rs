@@ -1,5 +1,6 @@
 use std::env::args;
-
+/// Run with `cargo run --bin decoder -- <path_to_wav_file>
+/// Produces `res.png`
 fn main() {
     let r = hound::WavReader::open(args().nth(1).unwrap()).unwrap();
     let spec = r.spec();
