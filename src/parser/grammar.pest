@@ -20,7 +20,7 @@ named_function = { identifier ~ "=" ~ var }
 
 // Operators
 ap = { "ap"  }
-cons = { "cons" }
+cons = { "cons" | "vec" }
 neg = { "neg" }
 eq = { "eq" }
 
