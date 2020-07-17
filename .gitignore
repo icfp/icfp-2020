@@ -35,3 +35,4 @@ build/
 target/
 Dockerfile
 res.png
+api_key

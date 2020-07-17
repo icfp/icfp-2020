@@ -21,6 +21,7 @@ hyper = "0.13.5"
 http-body = "0.3.1"
 hound = "3.4.0"
 png = "0.16.6"
+reqwest = "0.10.6"
 
 [dev-dependencies]
 
