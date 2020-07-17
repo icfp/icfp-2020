@@ -31,3 +31,6 @@ build/
 
 # Gradle Wrapper
 !gradle/wrapper/*.jar
+
+target/
+Dockerfile
