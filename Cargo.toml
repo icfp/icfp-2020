@@ -4,6 +4,9 @@ version = "0.1.0"
 authors = []
 edition = "2018"
 
+[lib]
+name = "lib"
+
 [[bin]]
 name = "app"
 path = "app/main.rs"
@@ -12,3 +15,7 @@ path = "app/main.rs"
 tokio = { version = "0.2.21", features = ["macros"] }
 hyper = "0.13.5"
 http-body = "0.3.1"
+hound = "3.4.0"
+
+[dev-dependencies]
+cargo-tarpaulin = "0.14.2"
