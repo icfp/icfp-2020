@@ -1,11 +1,11 @@
 [package]
-name = "app"
-version = "0.1.0"
+name = "icfp2020"
+version = "0.0.0"
 authors = []
 edition = "2018"
 
 [lib]
-name = "lib"
+name = "icfp"
 
 [[bin]]
 name = "app"

@@ -3,22 +3,22 @@ use reqwest;
 use reqwest::{Body, Error, Response};
 
 #[derive(Eq, PartialEq, Ord, PartialOrd, Clone)]
-struct ResponseId(String);
+pub struct ResponseId(String);
 
-struct Client {
+pub struct Client {
     server_url: String,
     api_key: String,
 }
 
 impl Client {
-    fn new(server_url: &str, api_key: &str) -> Client {
+    pub fn new(server_url: &str, api_key: &str) -> Client {
         Client {
             server_url: server_url.trim_end_matches("/").to_string(),
             api_key: api_key.to_string(),
         }
     }
 
-    async fn get_response(&self, response_id: ResponseId) -> Result<Response, Error> {
+    pub async fn get_response(&self, response_id: ResponseId) -> Result<Response, Error> {
         reqwest::Client::builder()
             .build()?
             .get(&format!(
@@ -31,7 +31,7 @@ impl Client {
             .await
     }
 
-    async fn send<T: Into<String>>(&self, content: T) -> Result<Response, Error> {
+    pub async fn send<T: Into<String>>(&self, content: T) -> Result<Response, Error> {
         reqwest::Client::builder()
             .build()?
             .post(&format!("{url}/aliens/send", url = self.server_url))
@@ -41,7 +41,7 @@ impl Client {
             .await
     }
 
-    async fn echo<T: Into<String>>(&self, content: T) -> Result<Response, Error> {
+    pub async fn echo<T: Into<String>>(&self, content: T) -> Result<Response, Error> {
         reqwest::Client::builder()
             .build()?
             .post(&format!("{url}", url = self.server_url))
