@@ -40,10 +40,10 @@ pub enum Symbol {
     Nil,               // 28
     IsNil,             // 29
     List(Vec<Symbol>), // 30
-    Vector,            // 31 .. vec = alias for cons that looks nice in “vector” usage context.
-    Draw,              // 32
-    Checkerboard,      // 33
-    MultipleDraw,      // 34
+    // 31 .. vec = alias for cons that looks nice in “vector” usage context.
+    Draw,         // 32
+    Checkerboard, // 33
+    MultipleDraw, // 34
     // 35 = modulate list, doesn't seem to map to an operation
     // 36 = send 0:
     //   :1678847
@@ -52,6 +52,7 @@ pub enum Symbol {
     Interact, // 38
     // 39 = interaction protocol
     StatelessDraw,
+    PartFn(Box<Symbol>, Vec<Symbol>, i8),
 }
 
 pub fn eval_instructions(tree: &[Symbol]) -> Symbol {
@@ -60,19 +61,124 @@ pub fn eval_instructions(tree: &[Symbol]) -> Symbol {
     eval(tree, &mut vars)
 }
 
+fn num_args(symbol: &Symbol) -> i8 {
+    match symbol {
+        Symbol::Lit(_) => 0,
+        Symbol::Eq => 2,
+        Symbol::Inc => 1,
+        Symbol::Dec => 1,
+        Symbol::Add => 2,
+        Symbol::Var(_) => 0,
+        Symbol::Mul => 2,
+        Symbol::Div => 2,
+        Symbol::T => 0,
+        Symbol::F => 0,
+        Symbol::Lt => 2,
+        Symbol::Mod => 1,
+        Symbol::Dem => 1,
+        Symbol::Send => 1,
+        Symbol::Neg => 1,
+        Symbol::Ap => 2,
+        Symbol::S => 3,
+        Symbol::C => 3,
+        Symbol::B => 3,
+        Symbol::Pwr2 => 1,
+        Symbol::I => 1,
+        Symbol::Cons => 2,
+        Symbol::Car => 1,
+        Symbol::Cdr => 1,
+        Symbol::Nil => 0,
+        Symbol::IsNil => 1,
+        Symbol::List(_) => 0,
+        Symbol::Draw => 1,
+        Symbol::Checkerboard => 2,
+        Symbol::MultipleDraw => 1,
+        Symbol::If0 => 3,
+        Symbol::Interact => 3,
+        Symbol::StatelessDraw => 3,
+        Symbol::PartFn(_, _, i) => *i,
+    }
+}
+
+fn lit1(operands: Vec<Symbol>, f: fn(i64) -> i64) -> Symbol {
+    if let [Symbol::Lit(x)] = operands.as_slice() {
+        Symbol::Lit(f(*x))
+    } else {
+        panic!()
+    }
+}
+
+fn lit2(operands: Vec<Symbol>, f: fn(i64, i64) -> i64) -> Symbol {
+    if let [Symbol::Lit(x), Symbol::Lit(y)] = operands.as_slice() {
+        Symbol::Lit(f(*x, *y))
+    } else {
+        panic!()
+    }
+}
+
 fn eval_fn(op: Symbol, operands: &mut VecDeque<Symbol>, vars: &mut HashMap<i32, Symbol>) -> Symbol {
-    match op {
-        Symbol::Eq => {
-            // we're iterating backwards, operand order is reversed
-            let rhs = operands.pop_back().unwrap();
-            let lhs = operands.pop_back().unwrap();
-            if lhs == rhs {
-                Symbol::T
+    match num_args(&op) {
+        0 => eval_val(op, Vec::new(), vars),
+        x if x > 0 => {
+            let mut arg = vec![operands.pop_back().unwrap()];
+            if let Symbol::PartFn(sym, mut args, _) = op {
+                arg.append(&mut args);
+                Symbol::PartFn(sym, arg, x - 1)
             } else {
-                Symbol::F
+                Symbol::PartFn(Box::new(op), arg, x - 1)
             }
         }
+        _ => unreachable!(),
+    }
+}
 
+fn eval_val(op: Symbol, operands: Vec<Symbol>, vars: &mut HashMap<i32, Symbol>) -> Symbol {
+    match op {
+        Symbol::Lit(_) => op,
+        Symbol::Eq => {
+            if let [lhs, rhs] = operands.as_slice() {
+                if lhs == rhs {
+                    Symbol::T
+                } else {
+                    Symbol::F
+                }
+            } else {
+                panic!()
+            }
+        }
+        Symbol::Inc => lit1(operands, |x| x + 1),
+
+        Symbol::Dec => lit1(operands, |x| x - 1),
+
+        Symbol::Add => lit2(operands, |x, y| x + y),
+        // Symbol::Mul => {},
+        // Symbol::Div => {},
+        // Symbol::T => {},
+        // Symbol::F => {},
+        // Symbol::Lt => {},
+        // Symbol::Mod => {},
+        // Symbol::Dem => {},
+        // Symbol::Send => {},
+        // Symbol::Neg => {},
+        // Symbol::Ap => {},
+        // Symbol::S => {},
+        // Symbol::C => {},
+        // Symbol::B => {},
+        // Symbol::Pwr2 => {},
+        // Symbol::I => {},
+        // Symbol::Cons => {},
+        // Symbol::Car => {},
+        // Symbol::Cdr => {},
+        // Symbol::Nil => {},
+        // Symbol::IsNil => {},
+        // Symbol::List(_) => {},
+        // Symbol::Draw => {},
+        // Symbol::Checkerboard => {},
+        // Symbol::MultipleDraw => {},
+        // Symbol::If0 => {},
+        // Symbol::Interact => {},
+        // Symbol::StatelessDraw => {},
+        Symbol::PartFn(op0, args, 0) => eval_val(*op0, args, vars),
         _ => unimplemented!("{0:?} is not implemented", op),
     }
 }
@@ -92,7 +198,7 @@ fn eval(instructions: &[Symbol], vars: &mut HashMap<i32, Symbol>) -> Symbol {
 
     assert_eq!(stack.len(), 1);
 
-    stack.pop_back().unwrap()
+    eval_val(stack.pop_back().unwrap(), Vec::new(), vars)
 }
 
 #[cfg(test)]
@@ -101,13 +207,45 @@ mod tests {
 
     #[test]
     fn equality() {
-        let res = eval_instructions(&[Symbol::Ap, Symbol::Eq, Symbol::Lit(1), Symbol::Lit(1)]);
+        let res = eval_instructions(&[
+            Symbol::Ap,
+            Symbol::Ap,
+            Symbol::Eq,
+            Symbol::Lit(1),
+            Symbol::Lit(1),
+        ]);
         assert_eq!(res, Symbol::T);
     }
 
     #[test]
     fn inequality() {
-        let res = eval_instructions(&[Symbol::Ap, Symbol::Eq, Symbol::Lit(1), Symbol::Lit(2)]);
+        let res = eval_instructions(&[
+            Symbol::Ap,
+            Symbol::Ap,
+            Symbol::Eq,
+            Symbol::Lit(1),
+            Symbol::Lit(2),
+        ]);
         assert_eq!(res, Symbol::F);
+    }
+
+    #[test]
+    fn message5() {
+        // from https://message-from-space.readthedocs.io/en/latest/message5.html
+
+        let res = eval_instructions(&[Symbol::Ap, Symbol::Inc, Symbol::Lit(0)]);
+        assert_eq!(res, Symbol::Lit(1));
+
+        /*
+        ap inc 0   =   1
+        ap inc 1   =   2
+        ap inc 2   =   3
+        ap inc 3   =   4
+        ap inc 300   =   301
+        ap inc 301   =   302
+        ap inc -1   =   0
+        ap inc -2   =   -1
+        ap inc -3   =   -2
+        */
     }
 }
