@@ -1,6 +1,7 @@
 // https://message-from-space.readthedocs.io/en/latest/message7.html
 
 use std::cmp::max;
+use std::collections::{HashMap, VecDeque};
 
 type BSymbol = Box<Symbol>;
 
@@ -11,7 +12,8 @@ pub enum Symbol {
     Inc,               // 5
     Dec,               // 6
     Add,               // 7
-    Var(usize),        // 8
+    Get(usize),        // 8
+    Set(usize),        // 8
     Mul,               // 9
     Div,               // 10
     T,                 // 11 & 21
@@ -48,30 +50,44 @@ pub enum Symbol {
 }
 
 pub fn eval_instructions(tree: &[Symbol]) -> Symbol {
-    let len = max_vars(&tree);
-    let mut vars = vec![Symbol::Nil; len];
+    let mut vars = HashMap::new();
 
-    eval(tree, &mut vars).0.clone()
+    eval(tree, &mut vars)
 }
 
-fn max_vars(instructions: &[Symbol]) -> usize {
-    instructions.iter().fold(0 as usize, |acc, el| match el {
-        Symbol::Var(idx) => max(*idx, acc),
-        _ => acc,
-    })
-}
-
-fn eval<'a>(instructions: &'a [Symbol], vars: &mut Vec<Symbol>) -> (Symbol, &'a [Symbol]) {
-    let (op, rest) = instructions.split_first().unwrap();
+fn eval_fn(op: Symbol, operands: &mut VecDeque<Symbol>, vars: &mut HashMap<i32, Symbol>) -> Symbol {
     match op {
-        Symbol::Lit(_) => (op.clone(), rest),
         Symbol::Eq => {
-            let (lhs, rest0) = eval(rest, vars);
-            let (rhs, rest1) = eval(rest0, vars);
-            (if lhs == rhs { Symbol::T } else { Symbol::F }, rest1)
+            // we're iterating backwards, operand order is reversed
+            let rhs = operands.pop_back().unwrap();
+            let lhs = operands.pop_back().unwrap();
+            if lhs == rhs {
+                Symbol::T
+            } else {
+                Symbol::F
+            }
         }
+
         _ => unimplemented!("{0:?} is not implemented", op),
     }
+}
+
+fn eval(instructions: &[Symbol], vars: &mut HashMap<i32, Symbol>) -> Symbol {
+    let mut stack = VecDeque::<Symbol>::new();
+    for inst in instructions.iter().rev() {
+        match inst {
+            Symbol::Ap => {
+                let op = stack.pop_back().unwrap();
+                let res = eval_fn(op, &mut stack, vars);
+                stack.push_back(res);
+            }
+            _ => stack.push_back(inst.clone()),
+        }
+    }
+
+    assert_eq!(stack.len(), 1);
+
+    stack.pop_back().unwrap()
 }
 
 #[cfg(test)]
@@ -80,13 +96,13 @@ mod tests {
 
     #[test]
     fn equality() {
-        let res = eval_instructions(&[Symbol::Eq, Symbol::Lit(1), Symbol::Lit(1)]);
+        let res = eval_instructions(&[Symbol::Ap, Symbol::Eq, Symbol::Lit(1), Symbol::Lit(1)]);
         assert_eq!(res, Symbol::T);
     }
 
     #[test]
     fn inequality() {
-        let res = eval_instructions(&[Symbol::Eq, Symbol::Lit(1), Symbol::Lit(2)]);
+        let res = eval_instructions(&[Symbol::Ap, Symbol::Eq, Symbol::Lit(1), Symbol::Lit(2)]);
         assert_eq!(res, Symbol::F);
     }
 }
