@@ -142,8 +142,6 @@ fn eval_val(op: Symbol, raw_operands: Vec<Symbol>, vars: &mut HashMap<usize, Sym
         .map(|x| eval(&[x.clone()], vars))
         .collect();
 
-    println!("{:?}", op.clone());
-
     match op {
         Symbol::Lit(_) => op,
         Symbol::Eq => {
