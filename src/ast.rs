@@ -220,7 +220,7 @@ fn eval_val(op: Symbol, raw_operands: Vec<Symbol>, vars: &mut HashMap<usize, Sym
         // Symbol::MultipleDraw => {},
         Symbol::If0 => {
             if let [literal, x, y] = operands.as_slice() {
-                if literal.clone() == Symbol::Lit(0) {
+                if literal == &Symbol::Lit(0) {
                     x.clone()
                 } else {
                     y.clone()
