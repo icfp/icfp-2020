@@ -196,30 +196,17 @@ fn message21() {
 
 #[test]
 fn message37_is_0() {
-    let res = eval_instructions(&[
-        Symbol::Ap,
-        Symbol::Ap,
-        Symbol::Ap,
-        Symbol::If0,
-        Symbol::Lit(0),
-        Symbol::Var(1),
-        Symbol::Lit(1)
-    ]);
+    let res = eval(
+        &[Ap, Ap, Ap, If0, Lit(0), Var(1), Lit(2)],
+        &mut vec![(1, Lit(42))].into_iter().collect(),
+    );
 
-    assert_eq!(res, Symbol::Var(1))
+    assert_eq!(res, Lit(42))
 }
 
 #[test]
 fn message37_is_not_0() {
-    let res = eval_instructions(&[
-        Symbol::Ap,
-        Symbol::Ap,
-        Symbol::Ap,
-        Symbol::If0,
-        Symbol::Lit(1),
-        Symbol::Var(1),
-        Symbol::Lit(0)
-    ]);
+    let res = eval_instructions(&[Ap, Ap, Ap, If0, Lit(1), Lit(0), Lit(1)]);
 
-    assert_eq!(res, Symbol::Lit(0))
+    assert_eq!(res, Symbol::Lit(1))
 }

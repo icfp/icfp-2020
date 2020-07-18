@@ -219,8 +219,16 @@ fn eval_val(op: Symbol, raw_operands: Vec<Symbol>, vars: &mut HashMap<usize, Sym
         // Symbol::Checkerboard => {},
         // Symbol::MultipleDraw => {},
         Symbol::If0 => {
-            return if operands[2] == Symbol::Lit(0) { operands[1].clone() } else { operands[0].clone() }
-        },
+            if let [literal, x, y] = operands.as_slice() {
+                if literal.clone() == Symbol::Lit(0) {
+                    x.clone()
+                } else {
+                    y.clone()
+                }
+            } else {
+                unreachable!("{:?}", operands)
+            }
+        }
         // Symbol::Interact => {},
         // Symbol::StatelessDraw => {},
         Symbol::PartFn(op0, args, 0) => unreachable!("Should be handled by outer eval loop"),
