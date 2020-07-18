@@ -210,3 +210,20 @@ fn message21() {
     let res = eval_instructions(&[Ap, Ap, T, Ap, Inc, Lit(5), T]);
     assert_eq!(res, Lit(6));
 }
+
+#[test]
+fn message37_is_0() {
+    let res = eval(
+        &[Ap, Ap, Ap, If0, Lit(0), Var(1), Lit(2)],
+        &mut vec![(1, Lit(42))].into_iter().collect(),
+    );
+
+    assert_eq!(res, Lit(42))
+}
+
+#[test]
+fn message37_is_not_0() {
+    let res = eval_instructions(&[Ap, Ap, Ap, If0, Lit(1), Lit(0), Lit(1)]);
+
+    assert_eq!(res, Symbol::Lit(1))
+}
