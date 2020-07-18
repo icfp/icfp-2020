@@ -2,8 +2,6 @@
 
 use std::collections::{HashMap, VecDeque};
 
-type BSymbol = Box<Symbol>;
-
 type Number = i64;
 
 mod modulations;
@@ -166,7 +164,7 @@ fn eval_fn(
     match num_args(&op) {
         0 => eval_val(op, Vec::new(), vars),
         x if x > 0 => {
-            let mut arg = operands.pop_back().unwrap();
+            let arg = operands.pop_back().unwrap();
             if let Symbol::PartFn(sym, mut args, _) = op {
                 args.push(arg);
                 Symbol::PartFn(sym, args, x - 1)
@@ -238,7 +236,7 @@ fn eval_val(
             _ => unreachable!("Lt with invalid operands"),
         },
         Symbol::Mod => match operands.as_slice() {
-            [sym] => modulations::modulate(sym),
+            [sym] => Symbol::Modulated(modulations::modulate(sym)),
             _ => unreachable!("Mod with invalid operands"),
         },
         Symbol::Dem => match operands.as_slice() {
@@ -364,7 +362,7 @@ fn eval_val(
         }
         // Symbol::Interact => {},
         // Symbol::StatelessDraw => {},
-        Symbol::PartFn(op0, args, 0) => unreachable!("Should be handled by outer eval loop"),
+        Symbol::PartFn(_op0, _args, 0) => unreachable!("Should be handled by outer eval loop"),
 
         _ => unimplemented!("{0:?} is not implemented", op),
     }

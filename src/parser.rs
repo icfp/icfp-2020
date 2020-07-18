@@ -3,7 +3,6 @@ use std::str::FromStr;
 use pest::iterators::Pairs;
 use pest::Parser;
 use pest_derive::Parser;
-use tokio::stream::StreamExt;
 
 use crate::ast::{Identifier, Statement, Symbol};
 

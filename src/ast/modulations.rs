@@ -3,6 +3,8 @@ use super::{Number, Symbol};
 pub type Modulated = Vec<bool>;
 
 mod modulate_constants {
+    pub(super) const MODULATED_LIST: [bool; 2] = [true, true];
+    pub(super) const NIL: [bool; 2] = [false, false];
     pub(super) const ZERO: [bool; 3] = [false, true, false];
     pub(super) const SIGN_POSITIVE: [bool; 2] = [false, true];
     pub(super) const SIGN_NEGATIVE: [bool; 2] = [true, false];
@@ -77,11 +79,18 @@ fn modulate_number(value: Number) -> Modulated {
     return bits;
 }
 
-pub fn modulate(value: &Symbol) -> Symbol {
-    Symbol::Modulated(match value {
+pub fn modulate(value: &Symbol) -> Modulated {
+    match value {
         Symbol::Lit(number) => modulate_number(*number),
+        Symbol::Nil => modulate_constants::NIL.to_vec(),
+        Symbol::Pair(left, right) => {
+            let mut vec = modulate_constants::MODULATED_LIST.to_vec();
+            vec.extend_from_slice(&modulate(&left));
+            vec.extend_from_slice(&modulate(&right));
+            vec
+        }
         _ => unimplemented!("Not implemented for {:?} yet", value),
-    })
+    }
 }
 
 pub fn demodulate(value: Modulated) -> Symbol {
@@ -134,10 +143,10 @@ mod tests {
         assert_eq!(modulate_number(-1), val("10100001"));
         assert_eq!(modulate_number(256), val("011110000100000000"));
 
-        assert_eq!(modulate(&Lit(0)), Modulated(val("010")));
-        assert_eq!(modulate(&Lit(1)), Modulated(val("01100001")));
-        assert_eq!(modulate(&Lit(-1)), Modulated(val("10100001")));
-        assert_eq!(modulate(&Lit(256)), Modulated(val("011110000100000000")));
+        assert_eq!(modulate(&Lit(0)), val("010"));
+        assert_eq!(modulate(&Lit(1)), val("01100001"));
+        assert_eq!(modulate(&Lit(-1)), val("10100001"));
+        assert_eq!(modulate(&Lit(256)), val("011110000100000000"));
     }
 
     #[test]
