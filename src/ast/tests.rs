@@ -1,5 +1,6 @@
 use crate::ast::Symbol::*;
-use crate::ast::{eval, eval_instructions, Identifier, Symbol};
+use crate::ast::{eval, eval_instructions, Identifier, Symbol, SymbolCell};
+use std::ops::Deref;
 
 #[test]
 fn test_modulate() {
@@ -88,7 +89,7 @@ fn inequality() {
 #[test]
 fn cons() {
     let res = eval_instructions(&[Ap, Ap, Cons, Lit(1), Lit(2)]);
-    assert_eq!(res, Pair(Box::new(Lit(1)), Box::new(Lit(2))));
+    assert_eq!(res, Pair(Lit(1).into(), Lit(2).into()));
 }
 
 #[test]
@@ -171,26 +172,33 @@ fn message9() {
 
     let res = eval(
         &[Ap, Ap, Mul, Var(0), Var(1)],
-        &mut vec![(Identifier::Var(0), Lit(42)), (Identifier::Var(1), Lit(7))]
+        &mut vec![
+            (Identifier::Var(0), Lit(42).into()),
+            (Identifier::Var(1), Lit(7).into()),
+        ]
+        .into_iter()
+        .collect(),
+    );
+
+    assert_eq!(res.deref().clone(), Lit(294));
+
+    let res = eval(
+        &[Ap, Ap, Mul, Var(0), Lit(0)],
+        &mut vec![(Identifier::Var(0), Lit(42).into())]
             .into_iter()
             .collect(),
     );
 
-    assert_eq!(res, Lit(294));
-
-    let res = eval(
-        &[Ap, Ap, Mul, Var(0), Lit(0)],
-        &mut vec![(Identifier::Var(0), Lit(42))].into_iter().collect(),
-    );
-
-    assert_eq!(res, Lit(0));
+    assert_eq!(res.deref().clone(), Lit(0));
 
     let res = eval(
         &[Ap, Ap, Mul, Var(0), Lit(1)],
-        &mut vec![(Identifier::Var(0), Lit(42))].into_iter().collect(),
+        &mut vec![(Identifier::Var(0), Lit(42).into())]
+            .into_iter()
+            .collect(),
     );
 
-    assert_eq!(res, Lit(42));
+    assert_eq!(res.deref().clone(), Lit(42));
 }
 
 #[test]
@@ -236,10 +244,12 @@ fn message10() {
 
     let res = eval(
         &[Ap, Ap, Div, Var(0), Lit(1)],
-        &mut vec![(Identifier::Var(0), Lit(42))].into_iter().collect(),
+        &mut vec![(Identifier::Var(0), Lit(42).into())]
+            .into_iter()
+            .collect(),
     );
 
-    assert_eq!(res, Lit(42));
+    assert_eq!(res.deref().clone(), Lit(42));
 }
 
 #[test]
@@ -341,9 +351,11 @@ fn message19() {
 fn message20() {
     let res = eval(
         &[Ap, Ap, Ap, B, Inc, Dec, Var(1)],
-        &mut vec![(Identifier::Var(1), Lit(42))].into_iter().collect(),
+        &mut vec![(Identifier::Var(1), Lit(42).into())]
+            .into_iter()
+            .collect(),
     );
-    assert_eq!(res, Lit(42));
+    assert_eq!(res.deref().clone(), Lit(42));
 }
 
 #[test]
@@ -373,12 +385,15 @@ fn message21() {
 fn message22() {
     let res = eval(
         &[Ap, Ap, F, Var(1), Var(2)],
-        &mut vec![(Identifier::Var(1), Lit(3)), (Identifier::Var(2), Lit(4))]
-            .into_iter()
-            .collect(),
+        &mut vec![
+            (Identifier::Var(1), Lit(3).into()),
+            (Identifier::Var(2), Lit(4).into()),
+        ]
+        .into_iter()
+        .collect(),
     );
 
-    assert_eq!(res, Lit(4))
+    assert_eq!(res.deref().clone(), Lit(4))
 }
 
 #[test]
@@ -417,10 +432,12 @@ fn message24() {
 
     let res = eval(
         &[Ap, I, Var(0)],
-        &mut vec![(Identifier::Var(0), Lit(42))].into_iter().collect(),
+        &mut vec![(Identifier::Var(0), Lit(42).into())]
+            .into_iter()
+            .collect(),
     );
 
-    assert_eq!(res, Lit(42));
+    assert_eq!(res.deref().clone(), Lit(42));
 
     let res = eval_instructions(&[Ap, I, Lit(1)]);
     assert_eq!(res, Lit(1));
@@ -432,7 +449,7 @@ fn message24() {
     assert_eq!(res, Add);
 
     let res = eval_instructions(&[Ap, I, Ap, Add, Lit(1)]);
-    assert_eq!(res, PartFn(Box::new(Add), vec![Lit(1)], 1));
+    assert_eq!(res, PartFn(Add.into(), vec![Lit(1).into()], 1));
 }
 
 #[test]
@@ -461,15 +478,15 @@ fn message33() {
     assert_eq!(
         res,
         List(vec![
-            Pair(Box::from(Lit(0)), Box::from(Lit(0))),
-            Pair(Box::from(Lit(0)), Box::from(Lit(2))),
-            Pair(Box::from(Lit(0)), Box::from(Lit(4))),
-            Pair(Box::from(Lit(2)), Box::from(Lit(0))),
-            Pair(Box::from(Lit(2)), Box::from(Lit(2))),
-            Pair(Box::from(Lit(2)), Box::from(Lit(4))),
-            Pair(Box::from(Lit(4)), Box::from(Lit(0))),
-            Pair(Box::from(Lit(4)), Box::from(Lit(2))),
-            Pair(Box::from(Lit(4)), Box::from(Lit(4)))
+            Pair(Lit(0).into(), Lit(0).into()),
+            Pair(Lit(0).into(), Lit(2).into()),
+            Pair(Lit(0).into(), Lit(4).into()),
+            Pair(Lit(2).into(), Lit(0).into()),
+            Pair(Lit(2).into(), Lit(2).into()),
+            Pair(Lit(2).into(), Lit(4).into()),
+            Pair(Lit(4).into(), Lit(0).into()),
+            Pair(Lit(4).into(), Lit(2).into()),
+            Pair(Lit(4).into(), Lit(4).into())
         ])
         .canonicalize()
     )
@@ -479,9 +496,11 @@ fn message33() {
 fn message37() {
     let res = eval(
         &[Ap, Ap, Ap, If0, Lit(0), Var(1), Lit(2)],
-        &mut vec![(Identifier::Var(1), Lit(42))].into_iter().collect(),
+        &mut vec![(Identifier::Var(1), Lit(42).into())]
+            .into_iter()
+            .collect(),
     );
-    assert_eq!(res, Lit(42));
+    assert_eq!(res.deref(), &Lit(42));
 
     let res = eval_instructions(&[Ap, Ap, Ap, If0, Lit(1), Lit(0), Lit(1)]);
     assert_eq!(res, Symbol::Lit(1));

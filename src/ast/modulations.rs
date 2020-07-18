@@ -149,7 +149,7 @@ pub fn demodulate(value: Modulated) -> Symbol {
 
                 (
                     first_size + second_size,
-                    Symbol::Pair(Box::new(first_symbol), Box::new(second_symbol)),
+                    Symbol::Pair(first_symbol.into(), second_symbol.into()),
                 )
             }
             [false, false] => (2, Symbol::Nil),
@@ -176,6 +176,7 @@ pub fn modulate_to_string(symbol: &Symbol) -> String {
 #[cfg(test)]
 mod tests {
     use super::{Symbol::*, *};
+    use std::ops::Deref;
 
     #[test]
     fn test_modulate_logic() {
@@ -262,6 +263,6 @@ mod tests {
             response,
         ]);
 
-        dbg!(modulate_to_string(&dbg!(inc)));
+        dbg!(modulate_to_string(&inc));
     }
 }

@@ -1,10 +1,14 @@
 // https://message-from-space.readthedocs.io/en/latest/message7.html
 
 use std::collections::{HashMap, VecDeque};
+use std::ops::Deref;
+use std::rc::Rc;
 
 pub use modulations::{demodulate_string, modulate_to_string};
 
 type Number = i64;
+type SymbolCell = Rc<Symbol>;
+type Environment = HashMap<Identifier, SymbolCell>;
 
 mod modulations;
 
@@ -90,8 +94,8 @@ pub enum Symbol {
     // 38
     // 39 = interaction protocol
     StatelessDraw,
-    PartFn(Box<Symbol>, Vec<Symbol>, i8),
-    Pair(Box<Symbol>, Box<Symbol>),
+    PartFn(SymbolCell, Vec<SymbolCell>, i8),
+    Pair(SymbolCell, SymbolCell),
     Modulated(modulations::Modulated),
 }
 
@@ -99,17 +103,19 @@ impl Symbol {
     pub fn canonicalize(&self) -> Self {
         match self {
             Symbol::List(v) => v.iter().rfold(Symbol::Nil, |acc, v| {
-                Symbol::Pair(Box::from(v.clone()), Box::from(acc))
+                Symbol::Pair(v.clone().into(), acc.into())
             }),
             a => a.clone(),
         }
     }
 }
 
-pub fn eval_instructions(tree: &[Symbol]) -> Symbol {
-    let mut vars = HashMap::new();
+pub fn eval_instructions<T: Into<SymbolCell> + Clone>(symbols: &[T]) -> Symbol {
+    let mut vars = Environment::new();
 
-    eval(tree, &mut vars)
+    let instructions: Vec<SymbolCell> = symbols.iter().map(|sym| sym.clone().into()).collect();
+
+    eval(&instructions, &vars).deref().clone()
 }
 
 fn num_args(symbol: &Symbol) -> i8 {
@@ -153,60 +159,84 @@ fn num_args(symbol: &Symbol) -> i8 {
     }
 }
 
-fn lit1(operands: Vec<Symbol>, f: fn(Number) -> Number) -> Symbol {
-    if let [Symbol::Lit(x)] = operands.as_slice() {
-        Symbol::Lit(f(*x))
-    } else {
-        unreachable!("{:?}", operands);
+fn op1<F>(operands: &[SymbolCell], f: F) -> SymbolCell
+where
+    F: FnOnce(&Symbol) -> SymbolCell,
+{
+    let op = operands[0].deref();
+    f(op)
+}
+
+fn op2<F>(operands: &[SymbolCell], f: F) -> SymbolCell
+where
+    F: FnOnce(&Symbol, &Symbol) -> SymbolCell,
+{
+    let op = operands[0].deref();
+    let op2 = operands[1].deref();
+    f(op, op2)
+}
+
+fn op3<F>(operands: &[SymbolCell], f: F) -> SymbolCell
+where
+    F: FnOnce(&Symbol, &Symbol, &Symbol) -> SymbolCell,
+{
+    let op = operands[0].deref();
+    let op2 = operands[1].deref();
+    let op3 = operands[2].deref();
+    f(op, op2, op3)
+}
+
+impl Into<Symbol> for Number {
+    fn into(self) -> Symbol {
+        Symbol::Lit(self)
     }
 }
 
-fn lit2(operands: Vec<Symbol>, f: fn(Number, Number) -> Number) -> Symbol {
-    if let [Symbol::Lit(x), Symbol::Lit(y)] = operands.as_slice() {
-        Symbol::Lit(f(*x, *y))
-    } else {
-        unreachable!("{:?}", operands);
-    }
+fn lit1<T: Into<Symbol>>(operands: Vec<SymbolCell>, f: fn(Number) -> T) -> SymbolCell {
+    op1(&operands, move |symbol| match symbol {
+        Symbol::Lit(x) => f(*x).into().into(),
+        _ => unreachable!("Non-literal operand: {:?}", symbol),
+    })
 }
 
-fn eval_fn(
-    op: Symbol,
-    operands: &mut VecDeque<Symbol>,
-    vars: &mut HashMap<Identifier, Symbol>,
-) -> Symbol {
+fn lit2<T: Into<Symbol>>(operands: Vec<SymbolCell>, f: fn(Number, Number) -> T) -> SymbolCell {
+    op2(&operands, |op1, op2| match (op1, op2) {
+        (Symbol::Lit(x), Symbol::Lit(y)) => f(*x, *y).into().into(),
+        _ => unreachable!("Non-literal operands: {:?}", (op1, op2)),
+    })
+}
+
+fn eval_fn(op: SymbolCell, operands: &mut VecDeque<SymbolCell>, vars: &Environment) -> SymbolCell {
     match num_args(&op) {
         0 => eval_val(op, Vec::new(), vars),
         x if x > 0 => {
             let arg = operands.pop_back().unwrap();
-            if let Symbol::PartFn(sym, mut args, _) = op {
-                args.push(arg);
-                Symbol::PartFn(sym, args, x - 1)
+            if let Symbol::PartFn(sym, args, _) = op.deref() {
+                let mut new_args = args.clone();
+                new_args.push(arg);
+                Symbol::PartFn(Rc::clone(sym), new_args, x - 1).into()
             } else {
-                Symbol::PartFn(Box::new(op), vec![arg], x - 1)
+                Symbol::PartFn(op.into(), vec![arg], x - 1).into()
             }
         }
         _ => unreachable!(),
     }
 }
 
-fn eval_val(
-    op: Symbol,
-    raw_operands: Vec<Symbol>,
-    vars: &mut HashMap<Identifier, Symbol>,
-) -> Symbol {
-    let operands: Vec<Symbol> = raw_operands
+fn eval_val(op: SymbolCell, raw_operands: Vec<SymbolCell>, vars: &Environment) -> SymbolCell {
+    let operands: Vec<SymbolCell> = raw_operands
         .iter()
-        .map(|x| eval(&[x.clone()], vars))
+        .map(|x| eval(&[SymbolCell::clone(x)], vars))
         .collect();
 
-    match op {
+    match op.deref() {
         Symbol::Lit(_) => op,
         Symbol::Eq => {
             if let [lhs, rhs] = operands.as_slice() {
                 if lhs == rhs {
-                    Symbol::T
+                    Symbol::T.into()
                 } else {
-                    Symbol::F
+                    Symbol::F.into()
                 }
             } else {
                 unreachable!("{:?}", operands)
@@ -238,32 +268,32 @@ fn eval_val(
                 unreachable!("{:?}", operands)
             }
         }
-        Symbol::Lt => match operands.as_slice() {
-            [Symbol::Lit(x), Symbol::Lit(y)] => {
+        Symbol::Lt => op2(&operands, |op1, op2| match (op1, op2) {
+            (&Symbol::Lit(x), &Symbol::Lit(y)) => {
                 if x < y {
-                    Symbol::T
+                    Symbol::T.into()
                 } else {
-                    Symbol::F
+                    Symbol::F.into()
                 }
             }
             _ => unreachable!("Lt with invalid operands"),
-        },
-        Symbol::Mod => match operands.as_slice() {
-            [sym] => Symbol::Modulated(modulations::modulate(sym)),
+        }),
+        Symbol::Mod => op1(&operands, |op| match op {
+            sym => Symbol::Modulated(modulations::modulate(sym.deref())).into(),
             _ => unreachable!("Mod with invalid operands"),
-        },
-        Symbol::Dem => match operands.as_slice() {
-            [Symbol::Modulated(val)] => modulations::demodulate(val.clone()),
+        }),
+        Symbol::Dem => op1(&operands, |op| match op {
+            Symbol::Modulated(val) => modulations::demodulate(val.clone()).into(),
             _ => unreachable!("Dem with invalid operands"),
-        },
+        }),
         // Symbol::Send => {},
-        Symbol::Neg => {
-            if let [Symbol::Lit(x)] = operands.as_slice() {
-                Symbol::Lit(-x.clone())
+        Symbol::Neg => op1(&operands, |op| {
+            if let Symbol::Lit(x) = op {
+                Symbol::Lit(-x.clone()).into()
             } else {
                 unreachable!()
             }
-        }
+        }),
         Symbol::Ap => unreachable!("Should be handled by outer eval loop"),
 
         Symbol::S => {
@@ -273,11 +303,11 @@ fn eval_val(
             if let [x, y, z] = operands.as_slice() {
                 eval(
                     &[
-                        Symbol::Ap,
-                        Symbol::Ap,
+                        Symbol::Ap.into(),
+                        Symbol::Ap.into(),
                         x.clone(),
                         z.clone(),
-                        Symbol::Ap,
+                        Symbol::Ap.into(),
                         y.clone(),
                         z.clone(),
                     ],
@@ -294,7 +324,13 @@ fn eval_val(
 
             if let [x, y, z] = operands.as_slice() {
                 eval(
-                    &[Symbol::Ap, Symbol::Ap, x.clone(), z.clone(), y.clone()],
+                    &[
+                        Symbol::Ap.into(),
+                        Symbol::Ap.into(),
+                        x.clone(),
+                        z.clone(),
+                        y.clone(),
+                    ],
                     vars,
                 )
             } else {
@@ -308,7 +344,13 @@ fn eval_val(
 
             if let [x, y, z] = operands.as_slice() {
                 eval(
-                    &[Symbol::Ap, x.clone(), Symbol::Ap, y.clone(), z.clone()],
+                    &[
+                        Symbol::Ap.into(),
+                        x.clone(),
+                        Symbol::Ap.into(),
+                        y.clone(),
+                        z.clone(),
+                    ],
                     vars,
                 )
             } else {
@@ -328,62 +370,54 @@ fn eval_val(
 
         Symbol::Cons => {
             if let [x, y] = operands.as_slice() {
-                Symbol::Pair(Box::from(x.clone()), Box::from(y.clone()))
+                Symbol::Pair(x.clone().into(), y.clone().into()).into()
             } else {
                 unreachable!()
             }
         }
-        Symbol::Car => match operands.as_slice() {
-            [Symbol::Pair(v1, _)] => *(v1.clone()),
-            [Symbol::List(_)] => unreachable!("List should have been lowered"),
+        Symbol::Car => op1(&operands, |op| match op {
+            Symbol::Pair(v1, _) => v1.clone(),
+            Symbol::List(_) => unreachable!("List should have been lowered"),
             _ => unreachable!("Mod with invalid operands"),
-        },
+        }),
 
-        Symbol::Cdr => match operands.as_slice() {
-            [Symbol::Pair(_, v2)] => *(v2.clone()),
-            [Symbol::List(_)] => unreachable!("List should have been lowered"),
+        Symbol::Cdr => op1(&operands, |op| match op {
+            Symbol::Pair(_, v2) => v2.clone(),
+            Symbol::List(_) => unreachable!("List should have been lowered"),
             _ => unreachable!("Mod with invalid operands"),
-        },
+        }),
 
-        Symbol::Nil => Symbol::Nil,
+        Symbol::Nil => Symbol::Nil.into(),
 
-        Symbol::IsNil => {
-            if let [x] = operands.as_slice() {
-                if x == &Symbol::Nil {
-                    Symbol::T
-                } else {
-                    Symbol::F
-                }
+        Symbol::IsNil => op1(&operands, |op| {
+            if op == &Symbol::Nil {
+                Symbol::T.into()
             } else {
-                unreachable!()
+                Symbol::F.into()
             }
-        }
+        }),
 
         Symbol::List(_) => unreachable!("List should have been lowered"),
 
         // Symbol::Draw => {},
-        Symbol::Checkerboard => {
-            if let [Symbol::Lit(x), Symbol::Lit(y)] = operands.as_slice() {
-                let x_axis = (0..=*x).step_by(2);
-                let y_axis = (0..=*y).step_by(2);
-                Symbol::List(
-                    x_axis
-                        .flat_map(|x| {
-                            y_axis.clone().map(move |y| {
-                                Symbol::Pair(Box::from(Symbol::Lit(x)), Box::from(Symbol::Lit(y)))
-                            })
+        Symbol::Checkerboard => lit2(operands, |x, y| {
+            let x_axis = (0..=x).step_by(2);
+            let y_axis = (0..=y).step_by(2);
+            Symbol::List(
+                x_axis
+                    .flat_map(|x| {
+                        y_axis.clone().map(move |y| {
+                            Symbol::Pair(Symbol::Lit(x).into(), Symbol::Lit(y).into())
                         })
-                        .collect::<Vec<_>>(),
-                )
-                .canonicalize()
-            } else {
-                unreachable!()
-            }
-        }
+                    })
+                    .collect::<Vec<_>>(),
+            )
+            .canonicalize()
+        }),
         // Symbol::MultipleDraw => {},
         Symbol::If0 => {
             if let [literal, x, y] = operands.as_slice() {
-                if literal == &Symbol::Lit(0) {
+                if literal.deref() == &Symbol::Lit(0) {
                     x.clone()
                 } else {
                     y.clone()
@@ -400,25 +434,24 @@ fn eval_val(
     }
 }
 
-fn eval_thunk(instruction: Symbol, vars: &mut HashMap<Identifier, Symbol>) -> Symbol {
-    match instruction {
-        Symbol::PartFn(op, operands, 0) => eval_val(*op.clone(), operands.clone(), vars),
-
-        _ => instruction,
+fn eval_thunk(instruction: &SymbolCell, vars: &Environment) -> SymbolCell {
+    match instruction.deref() {
+        Symbol::PartFn(op, operands, 0) => eval_val(op.clone(), operands.clone(), vars),
+        _ => instruction.clone(),
     }
 }
 
-pub fn interpret(statements: Vec<Statement>) -> Symbol {
+pub fn interpret(statements: Vec<Statement>) -> SymbolCell {
     #[derive(Clone, Debug)]
     struct Result {
-        environment: HashMap<Identifier, Symbol>,
-        last: Option<Symbol>,
+        environment: Environment,
+        last: Option<SymbolCell>,
     }
 
     impl Default for Result {
         fn default() -> Self {
             Self {
-                environment: HashMap::new(),
+                environment: Environment::new(),
                 last: None,
             }
         }
@@ -427,7 +460,7 @@ pub fn interpret(statements: Vec<Statement>) -> Symbol {
     statements
         .iter()
         .fold(Result::default(), |mut acc, statement| {
-            let symbol = eval(&statement.1, &mut acc.environment);
+            let symbol = eval(&statement.1, &acc.environment);
             acc.environment.insert(statement.0.clone(), symbol.clone());
             Result {
                 last: Some(symbol),
@@ -438,17 +471,26 @@ pub fn interpret(statements: Vec<Statement>) -> Symbol {
         .unwrap()
 }
 
-fn lower_symbols(symbols: &[Symbol]) -> Vec<Symbol> {
-    symbols.iter().map(|inst| inst.canonicalize()).collect()
+fn lower_symbols<T>(symbols: &[T]) -> Vec<SymbolCell>
+where
+    T: Into<SymbolCell> + Clone,
+{
+    symbols
+        .iter()
+        .map(|inst| inst.clone().into().canonicalize().into())
+        .collect()
 }
 
-pub fn eval(instructions: &[Symbol], vars: &mut HashMap<Identifier, Symbol>) -> Symbol {
-    let mut stack = VecDeque::<Symbol>::new();
+pub fn eval<T>(instructions: &[T], vars: &Environment) -> SymbolCell
+where
+    T: Into<SymbolCell> + Clone,
+{
+    let mut stack = VecDeque::<SymbolCell>::new();
 
-    let lowered_symbols: Vec<Symbol> = lower_symbols(instructions);
+    let lowered_symbols: Vec<SymbolCell> = lower_symbols(instructions);
 
     for inst in lowered_symbols.iter().rev() {
-        match inst {
+        match inst.deref() {
             Symbol::Ap => {
                 let op = stack.pop_back().unwrap();
                 let res = eval_fn(op, &mut stack, vars);
@@ -461,13 +503,13 @@ pub fn eval(instructions: &[Symbol], vars: &mut HashMap<Identifier, Symbol>) -> 
                     .clone(),
             ),
 
-            _ => stack.push_back(eval_thunk(inst.clone(), vars)),
+            _ => stack.push_back(eval_thunk(&inst, vars)),
         }
     }
 
     assert_eq!(stack.len(), 1);
 
-    eval_thunk(stack.pop_back().unwrap(), vars)
+    eval_thunk(&stack.pop_back().unwrap(), vars)
 }
 
 #[cfg(test)]
