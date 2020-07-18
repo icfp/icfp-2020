@@ -84,10 +84,14 @@ pub fn modulate(value: &Symbol) -> Modulated {
         Symbol::Lit(number) => modulate_number(*number),
         Symbol::Nil => modulate_constants::NIL.to_vec(),
         Symbol::List(symbols) => {
-            let vec = symbols.iter().fold(Vec::new(), |mut vec, symbol| {
-                vec.append(&mut modulate(symbol));
-                vec
-            });
+            let mut vec = symbols.iter().fold(
+                modulate_constants::MODULATED_LIST.to_vec(),
+                |mut vec, symbol| {
+                    vec.append(&mut modulate(symbol));
+                    vec
+                },
+            );
+            vec.extend_from_slice(&modulate_constants::NIL);
             vec
         }
         Symbol::Pair(left, right) => {
@@ -205,6 +209,14 @@ mod tests {
     }
 
     #[test]
+    fn modulate_list_roundtrip() {
+        assert_eq!(
+            modulate_to_string(&List(vec![Lit(1)])),
+            modulate_to_string(&Pair(Lit(1).into(), Nil.into()))
+        );
+    }
+
+    #[test]
     fn test_demodulate_list() {
         assert_eq!(
             demodulate(vec![
@@ -236,10 +248,10 @@ mod tests {
         // 11110 - 4 width 16 bits (4*4)
         // 1111011100101010
         // 00 - Nil
-        let response = demodulate_string("1101100001110111110111101110010101000");
+        let response = demodulate_string("1101100001110111110110100111100011000");
         assert_eq!(
             response,
-            Pair(Lit(1).into(), Pair(Lit(63274).into(), Nil.into()).into())
+            Pair(Lit(1).into(), Pair(Lit(54214).into(), Nil.into()).into())
         );
 
         let inc = super::super::eval_instructions(&[
