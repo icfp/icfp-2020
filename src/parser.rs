@@ -1,7 +1,6 @@
-use std::collections::HashMap;
 use std::str::FromStr;
 
-use pest::iterators::{Pair, Pairs};
+use pest::iterators::Pairs;
 use pest::Parser;
 use pest_derive::Parser;
 use tokio::stream::StreamExt;
@@ -52,6 +51,7 @@ pub fn parse_as_lines(input: &str) -> Vec<Statement> {
                 Rule::eq => Symbol::Eq,
                 Rule::inc => Symbol::Inc,
                 Rule::modulate => Symbol::Mod,
+                Rule::demodulate => Symbol::Dem,
                 _ => unimplemented!("Unhandled Pair {:?}", pair),
             })
             .collect();

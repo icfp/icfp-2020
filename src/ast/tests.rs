@@ -1,12 +1,10 @@
-use std::collections::HashMap;
-
 use crate::ast::Symbol::*;
 use crate::ast::{eval, eval_instructions, Identifier, Symbol};
 
 #[test]
 fn test_modulate() {
     fn val(s: &str) -> Symbol {
-        StringValue(s.to_string())
+        Modulated(s.bytes().map(|b| b == b'1').collect())
     }
 
     assert_eq!(eval_instructions(&[Ap, Mod, Lit(0)]), val("010"));
@@ -198,17 +196,53 @@ fn message10() {
 
 #[test]
 fn message12() {
-    let res = eval_instructions(&[Ap, Ap, Lt, Lit(0), Lit(-1)]);
-    assert_eq!(res, F);
+    /*
+    ap ap lt 0 -1   =   f
+    ap ap lt 0 0   =   f
+    ap ap lt 0 1   =   t
+    ap ap lt 0 2   =   t
+    ...
+    ap ap lt 1 0   =   f
+    ap ap lt 1 1   =   f
+    ap ap lt 1 2   =   t
+    ap ap lt 1 3   =   t
+    ...
+    ap ap lt 2 1   =   f
+    ap ap lt 2 2   =   f
+    ap ap lt 2 3   =   t
+    ap ap lt 2 4   =   t
+    ...
+    ap ap lt 19 20   =   t
+    ap ap lt 20 20   =   f
+    ap ap lt 21 20   =   f
+    ...
+    ap ap lt -19 -20   =   f
+    ap ap lt -20 -20   =   f
+    ap ap lt -21 -20   =   t
+    */
 
-    let res = eval_instructions(&[Ap, Ap, Lt, Lit(0), Lit(0)]);
-    assert_eq!(res, F);
+    assert_eq!(eval_instructions(&[Ap, Ap, Lt, Lit(0), Lit(-1)]), F);
+    assert_eq!(eval_instructions(&[Ap, Ap, Lt, Lit(0), Lit(0)]), F);
+    assert_eq!(eval_instructions(&[Ap, Ap, Lt, Lit(0), Lit(1)]), T);
+    assert_eq!(eval_instructions(&[Ap, Ap, Lt, Lit(0), Lit(2)]), T);
 
-    let res = eval_instructions(&[Ap, Ap, Lt, Lit(1), Lit(2)]);
-    assert_eq!(res, T);
+    assert_eq!(eval_instructions(&[Ap, Ap, Lt, Lit(1), Lit(0)]), F);
+    assert_eq!(eval_instructions(&[Ap, Ap, Lt, Lit(1), Lit(1)]), F);
+    assert_eq!(eval_instructions(&[Ap, Ap, Lt, Lit(1), Lit(2)]), T);
+    assert_eq!(eval_instructions(&[Ap, Ap, Lt, Lit(1), Lit(3)]), T);
 
-    let res = eval_instructions(&[Ap, Ap, Lt, Lit(-19), Lit(-20)]);
-    assert_eq!(res, F);
+    assert_eq!(eval_instructions(&[Ap, Ap, Lt, Lit(2), Lit(1)]), F);
+    assert_eq!(eval_instructions(&[Ap, Ap, Lt, Lit(2), Lit(2)]), F);
+    assert_eq!(eval_instructions(&[Ap, Ap, Lt, Lit(2), Lit(3)]), T);
+    assert_eq!(eval_instructions(&[Ap, Ap, Lt, Lit(2), Lit(4)]), T);
+
+    assert_eq!(eval_instructions(&[Ap, Ap, Lt, Lit(19), Lit(20)]), T);
+    assert_eq!(eval_instructions(&[Ap, Ap, Lt, Lit(20), Lit(20)]), F);
+    assert_eq!(eval_instructions(&[Ap, Ap, Lt, Lit(21), Lit(20)]), F);
+
+    assert_eq!(eval_instructions(&[Ap, Ap, Lt, Lit(-19), Lit(-20)]), F);
+    assert_eq!(eval_instructions(&[Ap, Ap, Lt, Lit(-20), Lit(-20)]), F);
+    assert_eq!(eval_instructions(&[Ap, Ap, Lt, Lit(-21), Lit(-20)]), T);
 }
 
 #[test]
@@ -351,6 +385,12 @@ fn message24() {
 
     let res = eval_instructions(&[Ap, I, Ap, Add, Lit(1)]);
     assert_eq!(res, PartFn(Box::new(Add), vec![Lit(1)], 1));
+}
+
+#[test]
+fn message28() {
+    let res = eval_instructions(&[Ap, IsNil, Nil]);
+    assert_eq!(res, T)
 }
 
 #[test]

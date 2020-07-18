@@ -1,14 +1,12 @@
 // https://message-from-space.readthedocs.io/en/latest/message7.html
 
-use std::cmp::max;
 use std::collections::{HashMap, VecDeque};
-use std::str::FromStr;
 
 type BSymbol = Box<Symbol>;
 
 type Number = i64;
 
-mod functions;
+mod modulations;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Statement(pub Identifier, pub Vec<Symbol>);
@@ -93,8 +91,8 @@ pub enum Symbol {
     // 39 = interaction protocol
     StatelessDraw,
     PartFn(Box<Symbol>, Vec<Symbol>, i8),
-    StringValue(String),
     Pair(Box<Symbol>, Box<Symbol>),
+    Modulated(modulations::Modulated),
 }
 
 pub fn eval_instructions(tree: &[Symbol]) -> Symbol {
@@ -139,8 +137,8 @@ fn num_args(symbol: &Symbol) -> i8 {
         Symbol::Interact => 3,
         Symbol::StatelessDraw => 3,
         Symbol::PartFn(_, _, i) => *i,
-        Symbol::StringValue(_) => 0,
         Symbol::Pair(_, _) => 0,
+        Symbol::Modulated(_) => 0,
     }
 }
 
@@ -229,23 +227,22 @@ fn eval_val(
                 unreachable!("{:?}", operands)
             }
         }
-        Symbol::Lt => {
-            if let [Symbol::Lit(x), Symbol::Lit(y)] = operands.as_slice() {
+        Symbol::Lt => match operands.as_slice() {
+            [Symbol::Lit(x), Symbol::Lit(y)] => {
                 if x < y {
                     Symbol::T
                 } else {
                     Symbol::F
                 }
-            } else {
-                unreachable!("{:?}", operands)
             }
-        }
+            _ => unreachable!("Lt with invalid operands"),
+        },
         Symbol::Mod => match operands.as_slice() {
-            [Symbol::Lit(val)] => functions::modulate(*val),
+            [sym] => modulations::modulate(sym),
             _ => unreachable!("Mod with invalid operands"),
         },
         Symbol::Dem => match operands.as_slice() {
-            [Symbol::StringValue(val)] => functions::demodulate(val.clone()),
+            [Symbol::Modulated(val)] => modulations::demodulate(val.clone()),
             _ => unreachable!("Dem with invalid operands"),
         },
         // Symbol::Send => {},
@@ -336,8 +333,20 @@ fn eval_val(
             _ => unreachable!("Mod with invalid operands"),
         },
 
-        // Symbol::Nil => {},
-        // Symbol::IsNil => {},
+        Symbol::Nil => Symbol::Nil,
+
+        Symbol::IsNil => {
+            if let [x] = operands.as_slice() {
+                if x == &Symbol::Nil {
+                    Symbol::T
+                } else {
+                    Symbol::F
+                }
+            } else {
+                unreachable!()
+            }
+        }
+
         // Symbol::List(_) => {},
         // Symbol::Draw => {},
         // Symbol::Checkerboard => {},
