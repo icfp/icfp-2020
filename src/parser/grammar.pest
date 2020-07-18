@@ -26,8 +26,10 @@ eq = { "eq" }
 inc = { "inc" }
 modulate = { "mod" }
 demodulate = { "dem" }
+list = { "(" ~ symbol ~ ("," ~ symbol)* ~ ")" }
+empty_list = { "(" ~ ")" }
 
-symbol = _{ ap | cons | var | number | nil | eq | inc | modulate | demodulate }
+symbol = _{ ap | cons | var | number | nil | eq | inc | modulate | demodulate | list | empty_list }
 
 id = { var | identifier }
 assignment = { id ~ "=" ~ symbol+ }

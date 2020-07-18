@@ -394,6 +394,18 @@ fn message28() {
 }
 
 #[test]
+fn message30() {
+    let res = eval_instructions(&[Ap, Car, List(vec![Lit(1)])]);
+    assert_eq!(res, Lit(1));
+
+    let res = eval_instructions(&[Ap, Car, List(vec![Lit(3), Lit(2), Lit(1)])]);
+    assert_eq!(res, Lit(3));
+
+    let res = eval_instructions(&[Ap, Cdr, List(vec![Lit(3), Lit(2), Lit(1)])]);
+    assert_eq!(res, List(vec![Lit(2), Lit(1)]));
+}
+
+#[test]
 fn message33() {
     let res = eval_instructions(&[Ap, Ap, Checkerboard, Lit(4), Lit(4)]);
     dbg!(&res);

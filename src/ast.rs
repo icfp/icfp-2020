@@ -322,11 +322,13 @@ fn eval_val(
         }
         Symbol::Car => match operands.as_slice() {
             [Symbol::Pair(v1, _)] => *(v1.clone()),
+            [Symbol::List(v)] => v.first().unwrap().clone(),
             _ => unreachable!("Mod with invalid operands"),
         },
 
         Symbol::Cdr => match operands.as_slice() {
             [Symbol::Pair(_, v2)] => *(v2.clone()),
+            [Symbol::List(v)] => Symbol::List(v.iter().cloned().skip(1).collect()),
             _ => unreachable!("Mod with invalid operands"),
         },
 
@@ -344,7 +346,29 @@ fn eval_val(
             }
         }
 
-        // Symbol::List(_) => {},
+        Symbol::List(v) => {
+            struct Result {
+                last: Option<Symbol>,
+            }
+            impl Default for Result {
+                fn default() -> Self {
+                    Self { last: None }
+                }
+            }
+
+            let r = v.iter().rfold(Result::default(), |mut acc, v| {
+                if acc.last == None {
+                    acc.last = Some(Symbol::Pair(Box::from(v.clone()), Box::from(Symbol::Nil)));
+                } else {
+                    acc.last = Some(Symbol::Pair(
+                        Box::from(v.clone()),
+                        Box::from(acc.last.unwrap()),
+                    ));
+                }
+                acc
+            });
+            r.last.unwrap()
+        }
         // Symbol::Draw => {},
         Symbol::Checkerboard => {
             if let [Symbol::Lit(x), Symbol::Lit(y)] = operands.as_slice() {

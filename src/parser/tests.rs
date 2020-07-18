@@ -88,6 +88,59 @@ fn parse_mod_with_negative() {
     assert_eq!(expected, map);
     println!("{:?}", map);
 }
+
+#[test]
+fn parse_list() {
+    let map = parse_as_lines(":1029 = (300) nil");
+
+    use crate::ast::Identifier;
+    use crate::ast::Symbol::*;
+    let expected = map!(
+        Identifier::Var(1029) => vec![List(vec![Lit(300)]), Nil]
+    );
+    assert_eq!(expected, map);
+    println!("{:?}", map);
+}
+
+#[test]
+fn parse_list_many_items() {
+    let map = parse_as_lines(":1029 = (300, 200, 100) nil");
+
+    use crate::ast::Identifier;
+    use crate::ast::Symbol::*;
+    let expected = map!(
+        Identifier::Var(1029) => vec![List(vec![Lit(300), Lit(200), Lit(100)]), Nil]
+    );
+    assert_eq!(expected, map);
+    println!("{:?}", map);
+}
+
+#[test]
+fn parse_list_nested() {
+    let map = parse_as_lines(":1029 = (300, (200, 100)) nil");
+
+    use crate::ast::Identifier;
+    use crate::ast::Symbol::*;
+    let expected = map!(
+        Identifier::Var(1029) => vec![List(vec![Lit(300), List(vec![Lit(200), Lit(100)])]), Nil]
+    );
+    assert_eq!(expected, map);
+    println!("{:?}", map);
+}
+
+#[test]
+fn parse_empty_list() {
+    let map = parse_as_lines(":1029 = ( )");
+
+    use crate::ast::Identifier;
+    use crate::ast::Symbol::*;
+    let expected = map!(
+        Identifier::Var(1029) => vec![Nil]
+    );
+    assert_eq!(expected, map);
+    println!("{:?}", map);
+}
+
 // 5
 // 11
 // 21

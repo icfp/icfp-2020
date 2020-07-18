@@ -1,5 +1,6 @@
 use std::str::FromStr;
 
+use pest::iterators::Pair;
 use pest::iterators::Pairs;
 use pest::Parser;
 use pest_derive::Parser;
@@ -9,6 +10,29 @@ use crate::ast::{Identifier, Statement, Symbol};
 #[derive(Parser)]
 #[grammar = "parser/grammar.pest"] // relative to src
 struct ProgramParser;
+
+fn parse_pair(pair: Pair<'_, Rule>) -> Symbol {
+    match pair.as_rule() {
+        Rule::ap => Symbol::Ap,
+        Rule::var => {
+            let value = pair.into_inner().as_str();
+            Symbol::Var(usize::from_str(&value).unwrap())
+        }
+        Rule::cons => Symbol::Cons,
+        Rule::number => Symbol::Lit(i64::from_str(pair.as_str()).unwrap()),
+        Rule::nil => Symbol::Nil,
+        Rule::eq => Symbol::Eq,
+        Rule::inc => Symbol::Inc,
+        Rule::modulate => Symbol::Mod,
+        Rule::demodulate => Symbol::Dem,
+        Rule::list => {
+            let inner = pair.into_inner().map(|pair| parse_pair(pair)).collect();
+            Symbol::List(inner)
+        }
+        Rule::empty_list => Symbol::Nil,
+        _ => unimplemented!("Unhandled Pair {:?}", pair),
+    }
+}
 
 pub fn parse_as_lines(input: &str) -> Vec<Statement> {
     let lines = input.split('\n');
@@ -37,22 +61,8 @@ pub fn parse_as_lines(input: &str) -> Vec<Statement> {
         dbg!(&id);
 
         let symbols: Vec<Symbol> = assignment
-            .skip(1)
-            .map(|pair| match pair.as_rule() {
-                Rule::ap => Symbol::Ap,
-                Rule::var => {
-                    let value = pair.into_inner().as_str();
-                    Symbol::Var(usize::from_str(&value).unwrap())
-                }
-                Rule::cons => Symbol::Cons,
-                Rule::number => Symbol::Lit(i64::from_str(pair.as_str()).unwrap()),
-                Rule::nil => Symbol::Nil,
-                Rule::eq => Symbol::Eq,
-                Rule::inc => Symbol::Inc,
-                Rule::modulate => Symbol::Mod,
-                Rule::demodulate => Symbol::Dem,
-                _ => unimplemented!("Unhandled Pair {:?}", pair),
-            })
+            .skip(1) // Skips the lvalue
+            .map(|pair| parse_pair(pair))
             .collect();
 
         dbg!(&symbols);
