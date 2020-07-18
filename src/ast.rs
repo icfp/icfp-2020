@@ -109,8 +109,21 @@ impl Symbol {
         }
     }
 
-    pub fn eval(&self, env: &Environment) -> Self {
-        eval(&[SymbolCell::new(self.clone())], env).deref().clone()
+    fn eval(&self, env: &Environment) -> Symbol {
+        eval_fn(&SymbolCell::new(self.clone()), &mut vec![], env)
+            .deref()
+            .clone()
+    }
+
+    pub fn force(&self, env: &Environment) -> Symbol {
+        match self {
+            Symbol::List(xs) => Symbol::List(xs.iter().map(|x| x.force(env)).collect()),
+            pfn @ Symbol::PartFn(_, _, _) => pfn.eval(env),
+            Symbol::Pair(hd, tl) => {
+                Symbol::Pair(hd.deref().force(env).into(), tl.deref().force(env).into())
+            }
+            _ => self.clone(),
+        }
     }
 }
 
@@ -219,6 +232,8 @@ fn lit2<T: Into<Symbol>>(
 }
 
 fn eval_fn(op: &SymbolCell, operands: &mut Vec<SymbolCell>, vars: &Environment) -> SymbolCell {
+    dbg!(&op);
+
     match op.deref() {
         &Symbol::Ap => {
             let arg = operands.pop().unwrap();
@@ -243,7 +258,13 @@ fn eval_fn(op: &SymbolCell, operands: &mut Vec<SymbolCell>, vars: &Environment) 
             }
         }
 
-        Symbol::PartFn(op0, args, 0) => eval_val(op0.clone(), args.clone(), vars),
+        Symbol::PartFn(op0, args, 0) => {
+            let res = eval_val(op0.clone(), args.clone(), vars);
+            match res.deref() {
+                Symbol::PartFn(_, _, _) => eval_fn(&res, &mut vec![], vars),
+                _ => res,
+            }
+        }
 
         _ => op.clone(), // match num_args(op) {
                          //     0 => {
@@ -267,6 +288,8 @@ fn eval_fn(op: &SymbolCell, operands: &mut Vec<SymbolCell>, vars: &Environment) 
 }
 
 fn eval_val(op: SymbolCell, operands: Vec<SymbolCell>, vars: &Environment) -> SymbolCell {
+    dbg!(&op);
+
     match op.deref() {
         Symbol::Lit(_) => op,
         Symbol::Eq => {
@@ -340,8 +363,18 @@ fn eval_val(op: SymbolCell, operands: Vec<SymbolCell>, vars: &Environment) -> Sy
                 Symbol::PartFn(
                     Symbol::Ap.into(),
                     vec![
-                        Symbol::PartFn(Symbol::Ap.into(), vec![x.clone(), z.clone()], 0).into(),
-                        Symbol::PartFn(Symbol::Ap.into(), vec![y.clone(), z.clone()], 0).into(),
+                        Symbol::PartFn(
+                            Symbol::Ap.into(),
+                            vec![x.clone(), z.clone()],
+                            num_args(x) - 1,
+                        )
+                        .into(),
+                        Symbol::PartFn(
+                            Symbol::Ap.into(),
+                            vec![y.clone(), z.clone()],
+                            num_args(y) - 1,
+                        )
+                        .into(),
                     ],
                     0,
                 )
@@ -459,7 +492,10 @@ fn eval_val(op: SymbolCell, operands: Vec<SymbolCell>, vars: &Environment) -> Sy
         }
         // Symbol::Interact => {},
         // Symbol::StatelessDraw => {},
-        Symbol::PartFn(op0, args, 0) => eval_val(op0.clone(), args.clone(), vars),
+        pfn @ Symbol::PartFn(_, _, _) => {
+            let mut args = operands.clone();
+            eval_fn(&op, &mut args, vars)
+        }
 
         _ => unimplemented!("{0:?} is not implemented", op),
     }
@@ -522,7 +558,7 @@ where
 
     assert_eq!(stack.len(), 1);
 
-    eval_fn(&stack.pop().unwrap(), &mut vec![], vars)
+    stack.pop().unwrap().force(vars).into()
 }
 
 #[cfg(test)]
