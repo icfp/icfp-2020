@@ -193,3 +193,33 @@ fn message21() {
     let res = eval_instructions(&[Ap, Ap, T, Ap, Inc, Lit(5), T]);
     assert_eq!(res, Lit(6));
 }
+
+#[test]
+fn message37_is_0() {
+    let res = eval_instructions(&[
+        Symbol::Ap,
+        Symbol::Ap,
+        Symbol::Ap,
+        Symbol::If0,
+        Symbol::Lit(0),
+        Symbol::Var(1),
+        Symbol::Lit(1)
+    ]);
+
+    assert_eq!(res, Symbol::Var(1))
+}
+
+#[test]
+fn message37_is_not_0() {
+    let res = eval_instructions(&[
+        Symbol::Ap,
+        Symbol::Ap,
+        Symbol::Ap,
+        Symbol::If0,
+        Symbol::Lit(1),
+        Symbol::Var(1),
+        Symbol::Lit(0)
+    ]);
+
+    assert_eq!(res, Symbol::Lit(0))
+}
