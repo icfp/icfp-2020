@@ -26,6 +26,54 @@ fn test_demodulate() {
 }
 
 #[test]
+fn test_modulate_list() {
+    assert_eq!(
+        dbg!(eval_instructions(&[Ap, Mod, Nil])),
+        Modulated(vec![false, false])
+    );
+    assert_eq!(
+        dbg!(eval_instructions(&[Ap, Mod, Ap, Ap, Cons, Nil, Nil])),
+        Modulated(vec![true, true, false, false, false, false])
+    );
+    assert_eq!(
+        dbg!(eval_instructions(&[Ap, Mod, Ap, Ap, Cons, Lit(0), Nil])),
+        Modulated(vec![true, true, false, true, false, false, false])
+    );
+
+    assert_eq!(
+        dbg!(eval_instructions(&[Ap, Mod, Ap, Ap, Cons, Lit(1), Lit(2)])),
+        Modulated(vec![
+            true, true, false, true, true, false, false, false, false, true, false, true, true,
+            false, false, false, true, false
+        ])
+    );
+
+    assert_eq!(
+        dbg!(eval_instructions(&[
+            Ap,
+            Mod,
+            Ap,
+            Ap,
+            Cons,
+            Lit(1),
+            Ap,
+            Ap,
+            Cons,
+            Lit(2),
+            Nil
+        ])),
+        Modulated(vec![
+            true, true, false, true, true, false, false, false, false, true, true, true, false,
+            true, true, false, false, false, true, false, false, false
+        ])
+    );
+
+    // TODO: List literals
+    // ap mod ( 1 , 2 )   =   [( 1 , 2 )]
+    // ap mod ( 1 , ( 2 , 3 ) , 4 )   =   [( 1 , ( 2 , 3 ) , 4 )]
+}
+
+#[test]
 fn equality() {
     let res = eval_instructions(&[Ap, Ap, Eq, Lit(1), Lit(1)]);
     assert_eq!(res, T);

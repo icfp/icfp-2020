@@ -83,6 +83,13 @@ pub fn modulate(value: &Symbol) -> Modulated {
     match value {
         Symbol::Lit(number) => modulate_number(*number),
         Symbol::Nil => modulate_constants::NIL.to_vec(),
+        Symbol::List(symbols) => {
+            let vec = symbols.iter().fold(Vec::new(), |mut vec, symbol| {
+                vec.append(&mut modulate(symbol));
+                vec
+            });
+            vec
+        }
         Symbol::Pair(left, right) => {
             let mut vec = modulate_constants::MODULATED_LIST.to_vec();
             vec.extend_from_slice(&modulate(&left));
@@ -94,38 +101,72 @@ pub fn modulate(value: &Symbol) -> Modulated {
 }
 
 pub fn demodulate(value: Modulated) -> Symbol {
-    let slice = value.as_slice();
+    fn demodulate_number(sign: Number, slice: &[bool]) -> (usize, Symbol) {
+        let width = slice.iter().take_while(|&&b| b).count();
 
-    let sign = &slice[0..2];
-
-    match sign {
-        [true, false] | [false, true] => {
-            let sign = if sign == &modulate_constants::SIGN_POSITIVE {
-                1
-            } else {
-                -1
-            };
-
-            let width = slice[2..].iter().take_while(|&&b| b).count();
-
-            if width == 0 {
-                return Symbol::Lit(0);
-            }
-
-            let start = 2 + width + 1;
-
-            let parsed_value = slice[start..(start + (width * 4))]
-                .iter()
-                .fold(0i64, |num, bit| num << 1 | if *bit { 1 } else { 0 });
-
-            let parsed_value = sign * parsed_value;
-
-            Symbol::Lit(parsed_value)
+        if width == 0 {
+            return (1, Symbol::Lit(0));
         }
-        [true, true] => unimplemented!("Modulate List not implemented"),
-        [false, false] => Symbol::Nil,
-        _ => unreachable!("Invalid modulation"),
+
+        let width_bits = width + 1;
+        let bit_size = width_bits + (width * 4);
+
+        let parsed_value = slice[width_bits..bit_size]
+            .iter()
+            .fold(0i64, |num, bit| num << 1 | if *bit { 1 } else { 0 });
+
+        let parsed_value = sign * parsed_value;
+
+        (bit_size, Symbol::Lit(parsed_value))
     }
+
+    fn demodulate_slice(slice: &[bool]) -> (usize, Symbol) {
+        let prefix = &slice[0..2];
+
+        match prefix {
+            [true, false] | [false, true] => {
+                let sign = if prefix == &modulate_constants::SIGN_POSITIVE {
+                    1
+                } else {
+                    -1
+                };
+                let slice = &slice[2..]; // move past prefix
+
+                let (size, symbol) = demodulate_number(sign, slice);
+                (size + 2, symbol)
+            }
+            [true, true] => {
+                let slice = &slice[2..]; // move past prefix
+
+                let (first_size, first_symbol) = demodulate_slice(slice);
+
+                let slice = &slice[first_size..]; // move past prefix
+                let (second_size, second_symbol) = demodulate_slice(slice);
+
+                (
+                    first_size + second_size,
+                    Symbol::Pair(Box::new(first_symbol), Box::new(second_symbol)),
+                )
+            }
+            [false, false] => (2, Symbol::Nil),
+            _ => unreachable!("Invalid modulation"),
+        }
+    }
+
+    let slice = value.as_slice();
+    demodulate_slice(slice).1
+}
+
+pub fn demodulate_string(s: &str) -> Symbol {
+    demodulate(s.bytes().map(|b| b == b'1').collect())
+}
+
+pub fn modulate_to_string(symbol: &Symbol) -> String {
+    modulate(symbol)
+        .iter()
+        .map(|&b| if b { "1" } else { "0" })
+        .collect::<Vec<&str>>()
+        .join("")
 }
 
 #[cfg(test)]
@@ -161,5 +202,54 @@ mod tests {
         assert_eq!(demodulate(modulate_number(1)), Lit(1));
         assert_eq!(demodulate(modulate_number(-1)), Lit(-1));
         assert_eq!(demodulate(modulate_number(256)), Lit(256));
+    }
+
+    #[test]
+    fn test_demodulate_list() {
+        assert_eq!(
+            demodulate(vec![
+                true, true, // ModulatedList
+                false, true, // Positive Int
+                true, false, // Width = 4 * 1 (one true)
+                false, false, false, true, // One
+                false, true, // Positive Int
+                true, false, // Width = 4 * 1
+                false, false, true, false // Two
+            ]),
+            Pair(Lit(1).into(), Lit(2).into())
+        )
+    }
+
+    #[test]
+    fn http_responses() {
+        assert_eq!(
+            demodulate_string("1101000"),
+            Pair(Lit(0).into(), Nil.into())
+        );
+
+        // 11 - list
+        // 01 - +int
+        // 10 - 1 width (4 bits)
+        // 0001 - one
+        // 11 - list
+        // 01 - +int
+        // 11110 - 4 width 16 bits (4*4)
+        // 1111011100101010
+        // 00 - Nil
+        let response = demodulate_string("1101100001110111110111101110010101000");
+        assert_eq!(
+            response,
+            Pair(Lit(1).into(), Pair(Lit(63274).into(), Nil.into()).into())
+        );
+
+        let inc = super::super::eval_instructions(&[
+            Symbol::Ap,
+            Symbol::Inc,
+            Symbol::Ap,
+            Symbol::Car,
+            response,
+        ]);
+
+        dbg!(modulate_to_string(&dbg!(inc)));
     }
 }

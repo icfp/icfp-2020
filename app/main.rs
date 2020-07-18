@@ -3,6 +3,7 @@ use std::process;
 
 use hyper::StatusCode;
 
+use icfp::ast::{demodulate_string, modulate_to_string, Symbol};
 use icfp::client::Client as AlienClient;
 
 #[tokio::main]
@@ -13,17 +14,35 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let player_key = &args[2];
 
     println!("ServerUrl: {}; PlayerKey: {}", server_url, player_key);
-
     let client = AlienClient::new(server_url, player_key);
 
-    match client.send(player_key).await {
+    let mut program = Symbol::List(vec![Symbol::Lit(0)]);
+
+    for _i in 0..50 {
+        let response = send_program(&client, &program).await;
+        program = icfp::ast::eval_instructions(&[
+            Symbol::Ap,
+            Symbol::Inc,
+            Symbol::Ap,
+            Symbol::Car,
+            response,
+        ])
+    }
+
+    Ok(())
+}
+
+async fn send_program(client: &AlienClient, program: &Symbol) -> Symbol {
+    let program_string = modulate_to_string(&program);
+
+    match client.send(program_string).await {
         Ok(res) => match res.status() {
             StatusCode::OK => {
                 print!("Server response: ");
                 let text = res.text().await;
                 match text {
-                    Ok(content) => println!("{:?}", content),
-                    Err(why) => println!("error reading body: {:?}", why),
+                    Ok(content) => demodulate_string(content.as_str()),
+                    Err(why) => panic!("error reading body: {:?}", why),
                 }
             }
             _ => {
@@ -38,14 +57,12 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
                     Err(why) => println!("error reading body: {:?}", why),
                 }
 
-                process::exit(2);
+                process::exit(2)
             }
         },
         Err(err) => {
             println!("Unexpected server response:\n{}", err);
-            process::exit(1);
+            process::exit(1)
         }
     }
-
-    Ok(())
 }

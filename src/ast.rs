@@ -2,6 +2,8 @@
 
 use std::collections::{HashMap, VecDeque};
 
+pub use modulations::{demodulate_string, modulate_to_string};
+
 type Number = i64;
 
 mod modulations;
