@@ -220,8 +220,13 @@ fn eval_val(
                 unreachable!("{:?}", operands)
             }
         }
-
-        // Symbol::F => {},
+        Symbol::F => {
+            if let [_, f] = operands.as_slice() {
+                f.clone()
+            } else {
+                unreachable!("{:?}", operands)
+            }
+        }
         Symbol::Lt => match operands.as_slice() {
             [Symbol::Lit(x), Symbol::Lit(y)] => {
                 if x < y {
@@ -232,7 +237,6 @@ fn eval_val(
             }
             _ => unreachable!("Lt with invalid operands"),
         },
-
         Symbol::Mod => match operands.as_slice() {
             [sym] => modulations::modulate(sym),
             _ => unreachable!("Mod with invalid operands"),
@@ -242,7 +246,13 @@ fn eval_val(
             _ => unreachable!("Dem with invalid operands"),
         },
         // Symbol::Send => {},
-        // Symbol::Neg => {},
+        Symbol::Neg => {
+            if let [Symbol::Lit(x)] = operands.as_slice() {
+                Symbol::Lit(-x.clone())
+            } else {
+                unreachable!()
+            }
+        }
         Symbol::Ap => unreachable!("Should be handled by outer eval loop"),
 
         Symbol::S => {

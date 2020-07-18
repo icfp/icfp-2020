@@ -246,6 +246,24 @@ fn message12() {
 }
 
 #[test]
+fn message16() {
+    let res = eval_instructions(&[Ap, Neg, Lit(0)]);
+    assert_eq!(res, Lit(0));
+
+    let res = eval_instructions(&[Ap, Neg, Lit(1)]);
+    assert_eq!(res, Lit(-1));
+
+    let res = eval_instructions(&[Ap, Neg, Lit(-1)]);
+    assert_eq!(res, Lit(1));
+
+    let res = eval_instructions(&[Ap, Neg, Lit(2)]);
+    assert_eq!(res, Lit(-2));
+
+    let res = eval_instructions(&[Ap, Neg, Lit(-2)]);
+    assert_eq!(res, Lit(2));
+}
+
+#[test]
 fn message18() {
     /*
     ap ap ap s x0 x1 x2   =   ap ap x0 x2 ap x1 x2
@@ -301,6 +319,18 @@ fn message21() {
 
     let res = eval_instructions(&[Ap, Ap, T, Ap, Inc, Lit(5), T]);
     assert_eq!(res, Lit(6));
+}
+
+#[test]
+fn message22() {
+    let res = eval(
+        &[Ap, Ap, F, Var(1), Var(2)],
+        &mut vec![(Identifier::Var(1), Lit(3)), (Identifier::Var(2), Lit(4))]
+            .into_iter()
+            .collect(),
+    );
+
+    assert_eq!(res, Lit(4))
 }
 
 #[test]
