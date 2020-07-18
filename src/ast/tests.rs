@@ -101,3 +101,52 @@ fn message9() {
 
     assert_eq!(res, Lit(42));
 }
+
+#[test]
+fn message10() {
+    // https://message-from-space.readthedocs.io/en/latest/message10.html
+
+    /*
+    ap ap div 4 2   =   2
+    ap ap div 4 3   =   1
+    ap ap div 4 4   =   1
+    ap ap div 4 5   =   0
+    ap ap div 5 2   =   2
+    ap ap div 6 -2   =   -3
+    ap ap div 5 -3   =   -1
+    ap ap div -5 3   =   -1
+    ap ap div -5 -3   =   1
+    ap ap div x0 1   =   x0
+    */
+
+    let res = eval_instructions(&[Ap, Ap, Div, Lit(4), Lit(2)]);
+    assert_eq!(res, Lit(2));
+
+    let res = eval_instructions(&[Ap, Ap, Div, Lit(4), Lit(3)]);
+    assert_eq!(res, Lit(1));
+
+    let res = eval_instructions(&[Ap, Ap, Div, Lit(4), Lit(4)]);
+    assert_eq!(res, Lit(1));
+
+    let res = eval_instructions(&[Ap, Ap, Div, Lit(4), Lit(5)]);
+    assert_eq!(res, Lit(0));
+
+    let res = eval_instructions(&[Ap, Ap, Div, Lit(5), Lit(2)]);
+    assert_eq!(res, Lit(2));
+
+    let res = eval_instructions(&[Ap, Ap, Div, Lit(6), Lit(-2)]);
+    assert_eq!(res, Lit(-3));
+
+    let res = eval_instructions(&[Ap, Ap, Div, Lit(5), Lit(-3)]);
+    assert_eq!(res, Lit(-1));
+
+    let res = eval_instructions(&[Ap, Ap, Div, Lit(-5), Lit(-3)]);
+    assert_eq!(res, Lit(1));
+
+    let res = eval(
+        &[Ap, Ap, Div, Var(0), Lit(1)],
+        &mut vec![(0, Lit(42))].into_iter().collect(),
+    );
+
+    assert_eq!(res, Lit(42));
+}

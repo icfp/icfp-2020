@@ -124,12 +124,12 @@ fn eval_fn(
     match num_args(&op) {
         0 => eval_val(op, Vec::new(), vars),
         x if x > 0 => {
-            let mut arg = vec![operands.pop_back().unwrap()];
+            let mut arg = operands.pop_back().unwrap();
             if let Symbol::PartFn(sym, mut args, _) = op {
-                arg.append(&mut args);
-                Symbol::PartFn(sym, arg, x - 1)
+                args.push(arg);
+                Symbol::PartFn(sym, args, x - 1)
             } else {
-                Symbol::PartFn(Box::new(op), arg, x - 1)
+                Symbol::PartFn(Box::new(op), vec![arg], x - 1)
             }
         }
         _ => unreachable!(),
@@ -165,7 +165,8 @@ fn eval_val(op: Symbol, raw_operands: Vec<Symbol>, vars: &mut HashMap<usize, Sym
 
         Symbol::Mul => lit2(operands, |x, y| x * y),
 
-        // Symbol::Div => {},
+        Symbol::Div => lit2(operands, |x, y| x / y),
+
         // Symbol::T => {},
         // Symbol::F => {},
         // Symbol::Lt => {},
