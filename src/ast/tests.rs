@@ -309,6 +309,12 @@ fn message24() {
 }
 
 #[test]
+fn message28() {
+    let res = eval_instructions(&[Ap, IsNil, Nil]);
+    assert_eq!(res, T)
+}
+
+#[test]
 fn message37() {
     let res = eval(
         &[Ap, Ap, Ap, If0, Lit(0), Var(1), Lit(2)],

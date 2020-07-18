@@ -315,8 +315,20 @@ fn eval_val(
             _ => unreachable!("Mod with invalid operands"),
         },
 
-        // Symbol::Nil => {},
-        // Symbol::IsNil => {},
+        Symbol::Nil => Symbol::Nil,
+
+        Symbol::IsNil => {
+            if let [x] = operands.as_slice() {
+                if x == &Symbol::Nil {
+                    Symbol::T
+                } else {
+                    Symbol::F
+                }
+            } else {
+                unreachable!()
+            }
+        }
+
         // Symbol::List(_) => {},
         // Symbol::Draw => {},
         // Symbol::Checkerboard => {},
