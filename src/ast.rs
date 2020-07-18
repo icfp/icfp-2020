@@ -218,21 +218,66 @@ fn lit2<T: Into<Symbol>>(
     })
 }
 
-fn eval_fn(op: SymbolCell, operands: &mut VecDeque<SymbolCell>, vars: &Environment) -> SymbolCell {
-    match num_args(&op) {
-        0 => eval_val(op, Vec::new(), vars),
+fn eval_fn(op: &SymbolCell, operands: &mut Vec<SymbolCell>, vars: &Environment) -> SymbolCell {
+    match num_args(op) {
+        0 => {
+            //         // assert!(operands.is_empty());
+            eval_val(op.clone(), operands.deref().clone(), vars)
+        }
+
         x if x > 0 => {
-            let arg = operands.pop_back().unwrap();
-            if let Symbol::PartFn(sym, args, _) = op.deref() {
-                let mut new_args = args.clone();
-                new_args.push(arg);
-                Symbol::PartFn(Rc::clone(sym), new_args, x - 1).into()
-            } else {
-                Symbol::PartFn(op.into(), vec![arg], x - 1).into()
+            let arg = operands.pop().unwrap();
+
+            match (op.deref(), arg.deref()) {
+                (&Symbol::Ap, Symbol::PartFn(op, args, remaining)) => {
+                    assert!(*remaining > 0);
+                    let mut vec = args.clone();
+                    vec.push(operands.pop().unwrap());
+                    Symbol::PartFn(op.clone(), vec, remaining - 1).into()
+                }
+
+                (&Symbol::Ap, _) => {
+                    let remaining = num_args(arg.deref());
+                    Symbol::PartFn(
+                        op.clone(),
+                        vec![arg, operands.pop().unwrap()],
+                        remaining - 1,
+                    )
+                    .into()
+                }
+
+                _ => {
+                    dbg!(op);
+                    operands.push(arg);
+                    op.clone()
+                }
             }
         }
-        _ => unreachable!(),
+
+        _ => {
+            dbg!(op);
+            eval_val(op.clone(), operands.deref().clone(), vars)
+        }
     }
+
+    // match num_args(op) {
+    //     0 => {
+    //         // assert!(operands.is_empty());
+    //         eval_val(op.clone(), operands.deref().clone(), vars)
+    //     }
+    //     x if x > 0 => {
+    //         let arg = operands.pop().unwrap();
+    //         if let Symbol::PartFn(sym, args, _) = op.deref() {
+    //             let mut new_args = args.clone();
+    //             new_args.push(arg);
+    //             Symbol::PartFn(Rc::clone(sym), new_args, x - 1).into()
+    //         } else {
+    //             operands.pop();
+    //             Symbol::PartFn(Symbol::Ap.into(), vec![op.clone().into(), arg], x - 1).into()
+    //         }
+    //     }
+    //     _ => unreachable!(),
+    // }
 }
 
 fn eval_val(op: SymbolCell, operands: Vec<SymbolCell>, vars: &Environment) -> SymbolCell {
@@ -255,7 +300,7 @@ fn eval_val(op: SymbolCell, operands: Vec<SymbolCell>, vars: &Environment) -> Sy
 
         Symbol::Add => lit2(operands, vars, |x, y| x + y),
 
-        Symbol::Var(_) => unreachable!("Should be handled by outer eval loop"),
+        Symbol::Var(idx) => vars[&Identifier::Var(*idx)].clone(),
 
         Symbol::Mul => lit2(operands, vars, |x, y| x * y),
 
@@ -295,7 +340,11 @@ fn eval_val(op: SymbolCell, operands: Vec<SymbolCell>, vars: &Environment) -> Sy
         }),
         // Symbol::Send => {},
         Symbol::Neg => lit1(operands, vars, |x| Symbol::Lit(-x.clone())),
-        Symbol::Ap => unreachable!("Should be handled by outer eval loop"),
+
+        Symbol::Ap => match operands.split_first() {
+            Some((hd, tl)) => eval_val(hd.clone(), tl.to_vec(), vars),
+            None => unreachable!(),
+        },
 
         Symbol::S => {
             // https://en.wikipedia.org/wiki/SKI_combinator_calculus
@@ -424,16 +473,9 @@ fn eval_val(op: SymbolCell, operands: Vec<SymbolCell>, vars: &Environment) -> Sy
         }
         // Symbol::Interact => {},
         // Symbol::StatelessDraw => {},
-        Symbol::PartFn(_op0, _args, 0) => unreachable!("Should be handled by outer eval loop"),
+        Symbol::PartFn(op0, args, 0) => eval_val(op0.clone(), args.clone(), vars),
 
         _ => unimplemented!("{0:?} is not implemented", op),
-    }
-}
-
-fn eval_thunk(instruction: &SymbolCell, vars: &Environment) -> SymbolCell {
-    match instruction.deref() {
-        Symbol::PartFn(op, operands, 0) => eval_val(op.clone(), operands.clone(), vars),
-        _ => instruction.clone(),
     }
 }
 
@@ -481,31 +523,18 @@ pub fn eval<T>(instructions: &[T], vars: &Environment) -> SymbolCell
 where
     T: Into<SymbolCell> + Clone,
 {
-    let mut stack = VecDeque::<SymbolCell>::new();
+    let mut stack = Vec::<SymbolCell>::new();
 
     let lowered_symbols: Vec<SymbolCell> = lower_symbols(instructions);
 
     for inst in lowered_symbols.iter().rev() {
-        match inst.deref() {
-            Symbol::Ap => {
-                let op = stack.pop_back().unwrap();
-                let res = eval_fn(op, &mut stack, vars);
-                stack.push_back(res);
-            }
-
-            Symbol::Var(idx) => stack.push_back(
-                vars.get(&Identifier::Var(*idx))
-                    .expect(&format!("Unable to find variable {}", idx))
-                    .clone(),
-            ),
-
-            _ => stack.push_back(eval_thunk(&inst, vars)),
-        }
+        let val = eval_fn(inst, &mut stack, vars);
+        stack.push(val);
     }
 
     assert_eq!(stack.len(), 1);
 
-    eval_thunk(&stack.pop_back().unwrap(), vars)
+    eval_val(stack.pop().unwrap(), Vec::new(), vars)
 }
 
 #[cfg(test)]
