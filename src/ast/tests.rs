@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use crate::ast::functions::{modulate, modulate_to_string};
 use crate::ast::Symbol::*;
 use crate::ast::{eval, eval_instructions, Symbol};
 
@@ -17,6 +16,15 @@ fn test_modulate() {
         eval_instructions(&[Ap, Mod, Lit(256)]),
         val("011110000100000000")
     );
+}
+
+#[test]
+fn test_demodulate() {
+    assert_eq!(eval_instructions(&[Ap, Dem, Ap, Mod, Lit(0)]), Lit(0));
+    assert_eq!(eval_instructions(&[Ap, Dem, Ap, Mod, Lit(1)]), Lit(1));
+    assert_eq!(eval_instructions(&[Ap, Dem, Ap, Mod, Lit(-1)]), Lit(-1));
+    assert_eq!(eval_instructions(&[Ap, Dem, Ap, Mod, Lit(256)]), Lit(256));
+    assert_eq!(eval_instructions(&[Ap, Dem, Ap, Mod, Lit(-256)]), Lit(-256));
 }
 
 #[test]

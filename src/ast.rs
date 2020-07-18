@@ -216,14 +216,14 @@ fn eval_val(op: Symbol, raw_operands: Vec<Symbol>, vars: &mut HashMap<usize, Sym
 
         // Symbol::F => {},
         // Symbol::Lt => {},
-        Symbol::Mod => {
-            let val = eval(operands.as_slice(), vars);
-            match val {
-                Symbol::Lit(val) => functions::modulate(val),
-                _ => unreachable!("Mod with invalid operands"),
-            }
-        }
-        // Symbol::Dem => {},
+        Symbol::Mod => match operands.as_slice() {
+            [Symbol::Lit(val)] => functions::modulate(*val),
+            _ => unreachable!("Mod with invalid operands"),
+        },
+        Symbol::Dem => match operands.as_slice() {
+            [Symbol::StringValue(val)] => functions::demodulate(val.clone()),
+            _ => unreachable!("Dem with invalid operands"),
+        },
         // Symbol::Send => {},
         // Symbol::Neg => {},
         Symbol::Ap => unreachable!("Should be handled by outer eval loop"),
