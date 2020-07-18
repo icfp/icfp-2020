@@ -26,10 +26,13 @@ fn parse_pair(pair: Pair<'_, Rule>) -> Symbol {
         Rule::modulate => Symbol::Mod,
         Rule::demodulate => Symbol::Dem,
         Rule::list => {
-            let inner = pair.into_inner().map(|pair| parse_pair(pair)).collect();
-            Symbol::List(inner)
+            let inner: Vec<_> = pair.into_inner().map(|pair| parse_pair(pair)).collect();
+            if inner.is_empty() {
+                Symbol::Nil
+            } else {
+                Symbol::List(inner)
+            }
         }
-        Rule::empty_list => Symbol::Nil,
         _ => unimplemented!("Unhandled Pair {:?}", pair),
     }
 }
@@ -58,14 +61,10 @@ pub fn parse_as_lines(input: &str) -> Vec<Statement> {
             _ => unimplemented!("Invalid variable id {:?}", id),
         };
 
-        dbg!(&id);
-
         let symbols: Vec<Symbol> = assignment
             .skip(1) // Skips the lvalue
             .map(|pair| parse_pair(pair))
             .collect();
-
-        dbg!(&symbols);
 
         statements.push(Statement(id, symbols))
     }
