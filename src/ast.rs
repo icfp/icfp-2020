@@ -348,29 +348,10 @@ fn eval_val(
             }
         }
 
-        Symbol::List(v) => {
-            struct Result {
-                last: Option<Symbol>,
-            }
-            impl Default for Result {
-                fn default() -> Self {
-                    Self { last: None }
-                }
-            }
+        Symbol::List(v) => v.iter().rfold(Symbol::Nil, |acc, v| {
+            Symbol::Pair(Box::from(v.clone()), Box::from(acc))
+        }),
 
-            let r = v.iter().rfold(Result::default(), |mut acc, v| {
-                if acc.last == None {
-                    acc.last = Some(Symbol::Pair(Box::from(v.clone()), Box::from(Symbol::Nil)));
-                } else {
-                    acc.last = Some(Symbol::Pair(
-                        Box::from(v.clone()),
-                        Box::from(acc.last.unwrap()),
-                    ));
-                }
-                acc
-            });
-            r.last.unwrap()
-        }
         // Symbol::Draw => {},
         Symbol::Checkerboard => {
             if let [Symbol::Lit(x), Symbol::Lit(y)] = operands.as_slice() {
