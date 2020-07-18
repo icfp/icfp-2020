@@ -450,7 +450,7 @@ fn message30() {
     assert_eq!(res, Lit(3));
 
     let res = eval_instructions(&[Ap, Cdr, List(vec![Lit(3), Lit(2), Lit(1)])]);
-    assert_eq!(res, List(vec![Lit(2), Lit(1)]));
+    assert_eq!(res, List(vec![Lit(2), Lit(1)]).canonicalize());
 }
 
 #[test]
@@ -471,6 +471,7 @@ fn message33() {
             Pair(Box::from(Lit(4)), Box::from(Lit(2))),
             Pair(Box::from(Lit(4)), Box::from(Lit(4)))
         ])
+        .canonicalize()
     )
 }
 

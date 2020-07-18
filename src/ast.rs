@@ -95,6 +95,17 @@ pub enum Symbol {
     Modulated(modulations::Modulated),
 }
 
+impl Symbol {
+    pub fn canonicalize(&self) -> Self {
+        match self {
+            Symbol::List(v) => v.iter().rfold(Symbol::Nil, |acc, v| {
+                Symbol::Pair(Box::from(v.clone()), Box::from(acc))
+            }),
+            a => a.clone(),
+        }
+    }
+}
+
 pub fn eval_instructions(tree: &[Symbol]) -> Symbol {
     let mut vars = HashMap::new();
 
@@ -324,13 +335,13 @@ fn eval_val(
         }
         Symbol::Car => match operands.as_slice() {
             [Symbol::Pair(v1, _)] => *(v1.clone()),
-            [Symbol::List(v)] => v.first().unwrap().clone(),
+            [Symbol::List(_)] => unreachable!("List should have been lowered"),
             _ => unreachable!("Mod with invalid operands"),
         },
 
         Symbol::Cdr => match operands.as_slice() {
             [Symbol::Pair(_, v2)] => *(v2.clone()),
-            [Symbol::List(v)] => Symbol::List(v.iter().cloned().skip(1).collect()),
+            [Symbol::List(_)] => unreachable!("List should have been lowered"),
             _ => unreachable!("Mod with invalid operands"),
         },
 
@@ -348,17 +359,14 @@ fn eval_val(
             }
         }
 
-        Symbol::List(v) => v.iter().rfold(Symbol::Nil, |acc, v| {
-            Symbol::Pair(Box::from(v.clone()), Box::from(acc))
-        }),
+        Symbol::List(_) => unreachable!("List should have been lowered"),
 
         // Symbol::Draw => {},
         Symbol::Checkerboard => {
             if let [Symbol::Lit(x), Symbol::Lit(y)] = operands.as_slice() {
                 let x_axis = (0..=*x).step_by(2);
                 let y_axis = (0..=*y).step_by(2);
-
-                return Symbol::List(
+                Symbol::List(
                     x_axis
                         .flat_map(|x| {
                             y_axis.clone().map(move |y| {
@@ -366,7 +374,8 @@ fn eval_val(
                             })
                         })
                         .collect::<Vec<_>>(),
-                );
+                )
+                .canonicalize()
             } else {
                 unreachable!()
             }
@@ -429,9 +438,16 @@ pub fn interpret(statements: Vec<Statement>) -> Symbol {
         .unwrap()
 }
 
+fn lower_symbols(symbols: &[Symbol]) -> Vec<Symbol> {
+    symbols.iter().map(|inst| inst.canonicalize()).collect()
+}
+
 pub fn eval(instructions: &[Symbol], vars: &mut HashMap<Identifier, Symbol>) -> Symbol {
     let mut stack = VecDeque::<Symbol>::new();
-    for inst in instructions.iter().rev() {
+
+    let lowered_symbols: Vec<Symbol> = lower_symbols(instructions);
+
+    for inst in lowered_symbols.iter().rev() {
         match inst {
             Symbol::Ap => {
                 let op = stack.pop_back().unwrap();
