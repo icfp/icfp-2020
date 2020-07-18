@@ -197,6 +197,57 @@ fn message10() {
 }
 
 #[test]
+fn message12() {
+    /*
+    ap ap lt 0 -1   =   f
+    ap ap lt 0 0   =   f
+    ap ap lt 0 1   =   t
+    ap ap lt 0 2   =   t
+    ...
+    ap ap lt 1 0   =   f
+    ap ap lt 1 1   =   f
+    ap ap lt 1 2   =   t
+    ap ap lt 1 3   =   t
+    ...
+    ap ap lt 2 1   =   f
+    ap ap lt 2 2   =   f
+    ap ap lt 2 3   =   t
+    ap ap lt 2 4   =   t
+    ...
+    ap ap lt 19 20   =   t
+    ap ap lt 20 20   =   f
+    ap ap lt 21 20   =   f
+    ...
+    ap ap lt -19 -20   =   f
+    ap ap lt -20 -20   =   f
+    ap ap lt -21 -20   =   t
+    */
+
+    assert_eq!(eval_instructions(&[Ap, Ap, Lt, Lit(0), Lit(-1)]), F);
+    assert_eq!(eval_instructions(&[Ap, Ap, Lt, Lit(0), Lit(0)]), F);
+    assert_eq!(eval_instructions(&[Ap, Ap, Lt, Lit(0), Lit(1)]), T);
+    assert_eq!(eval_instructions(&[Ap, Ap, Lt, Lit(0), Lit(2)]), T);
+
+    assert_eq!(eval_instructions(&[Ap, Ap, Lt, Lit(1), Lit(0)]), F);
+    assert_eq!(eval_instructions(&[Ap, Ap, Lt, Lit(1), Lit(1)]), F);
+    assert_eq!(eval_instructions(&[Ap, Ap, Lt, Lit(1), Lit(2)]), T);
+    assert_eq!(eval_instructions(&[Ap, Ap, Lt, Lit(1), Lit(3)]), T);
+
+    assert_eq!(eval_instructions(&[Ap, Ap, Lt, Lit(2), Lit(1)]), F);
+    assert_eq!(eval_instructions(&[Ap, Ap, Lt, Lit(2), Lit(2)]), F);
+    assert_eq!(eval_instructions(&[Ap, Ap, Lt, Lit(2), Lit(3)]), T);
+    assert_eq!(eval_instructions(&[Ap, Ap, Lt, Lit(2), Lit(4)]), T);
+
+    assert_eq!(eval_instructions(&[Ap, Ap, Lt, Lit(19), Lit(20)]), T);
+    assert_eq!(eval_instructions(&[Ap, Ap, Lt, Lit(20), Lit(20)]), F);
+    assert_eq!(eval_instructions(&[Ap, Ap, Lt, Lit(21), Lit(20)]), F);
+
+    assert_eq!(eval_instructions(&[Ap, Ap, Lt, Lit(-19), Lit(-20)]), F);
+    assert_eq!(eval_instructions(&[Ap, Ap, Lt, Lit(-20), Lit(-20)]), F);
+    assert_eq!(eval_instructions(&[Ap, Ap, Lt, Lit(-21), Lit(-20)]), T);
+}
+
+#[test]
 fn message18() {
     /*
     ap ap ap s x0 x1 x2   =   ap ap x0 x2 ap x1 x2

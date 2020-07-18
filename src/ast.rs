@@ -224,7 +224,17 @@ fn eval_val(
         }
 
         // Symbol::F => {},
-        // Symbol::Lt => {},
+        Symbol::Lt => match operands.as_slice() {
+            [Symbol::Lit(x), Symbol::Lit(y)] => {
+                if x < y {
+                    Symbol::T
+                } else {
+                    Symbol::F
+                }
+            }
+            _ => unreachable!("Lt with invalid operands"),
+        },
+
         Symbol::Mod => match operands.as_slice() {
             [Symbol::Lit(val)] => functions::modulate(*val),
             _ => unreachable!("Mod with invalid operands"),
