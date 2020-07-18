@@ -45,7 +45,6 @@ fn run_start() {
 }
 
 #[test]
-#[ignore]
 fn run_galaxy() {
     let symbol = super::run(include_str!("../data/galaxy.txt"));
     dbg!(&symbol);

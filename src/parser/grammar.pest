@@ -21,14 +21,29 @@ named_function = { identifier ~ "=" ~ var }
 // Operators
 ap = { "ap"  }
 cons = { "cons" | "vec" }
+car = { "car" }
+cdr = { "cdr" }
 neg = { "neg" }
 eq = { "eq" }
+lt = { "lt" }
 inc = { "inc" }
 modulate = { "mod" }
 demodulate = { "dem" }
+mul = { "mul" }
+add = { "add" }
+div = { "div" }
+s = { "s" }
+c = { "c" }
+b = { "b" }
+i = { "i" }
+t = { "t" }
+f = { "f" }
+isnil = { "isnil" }
 list = { "(" ~ (symbol ~ ("," ~ symbol)*)? ~ ")" }
 
-symbol = _{ ap | cons | var | number | nil | eq | inc | modulate | demodulate | list }
+symbol = _{ ap | cons | car | cdr | neg | var | number | nil | eq | lt | inc |
+ div | mul | add | modulate | demodulate | list | s | c | b | i | t | f | isnil
+}
 
 id = { var | identifier }
 assignment = { id ~ "=" ~ symbol+ }
