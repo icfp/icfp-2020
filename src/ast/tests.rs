@@ -199,6 +199,21 @@ fn message18() {
 }
 
 #[test]
+fn message19() {
+    let res = eval_instructions(&[Ap, Ap, Ap, C, Add, Lit(1), Lit(2)]);
+    assert_eq!(res, Lit(3));
+}
+
+#[test]
+fn message20() {
+    let res = eval(
+        &[Ap, Ap, Ap, B, Inc, Dec, Var(1)],
+        &mut vec![(Identifier::Var(1), Lit(42))].into_iter().collect(),
+    );
+    assert_eq!(res, Lit(42));
+}
+
+#[test]
 fn message21() {
     /*
     ap ap t x0 x1   =   x0
@@ -222,18 +237,37 @@ fn message21() {
 }
 
 #[test]
-fn message37_is_0() {
+fn message23() {
+    let res = eval_instructions(&[Ap, Pwr2, Lit(2)]);
+    assert_eq!(res, Lit(4));
+
+    let res = eval_instructions(&[Ap, Pwr2, Lit(3)]);
+    assert_eq!(res, Lit(8));
+
+    let res = eval_instructions(&[Ap, Pwr2, Lit(4)]);
+    assert_eq!(res, Lit(16));
+
+    let res = eval_instructions(&[Ap, Pwr2, Lit(5)]);
+    assert_eq!(res, Lit(32));
+
+    let res = eval_instructions(&[Ap, Pwr2, Lit(6)]);
+    assert_eq!(res, Lit(64));
+
+    let res = eval_instructions(&[Ap, Pwr2, Lit(7)]);
+    assert_eq!(res, Lit(128));
+
+    let res = eval_instructions(&[Ap, Pwr2, Lit(8)]);
+    assert_eq!(res, Lit(256));
+}
+
+#[test]
+fn message37() {
     let res = eval(
         &[Ap, Ap, Ap, If0, Lit(0), Var(1), Lit(2)],
         &mut vec![(Identifier::Var(1), Lit(42))].into_iter().collect(),
     );
+    assert_eq!(res, Lit(42));
 
-    assert_eq!(res, Lit(42))
-}
-
-#[test]
-fn message37_is_not_0() {
     let res = eval_instructions(&[Ap, Ap, Ap, If0, Lit(1), Lit(0), Lit(1)]);
-
-    assert_eq!(res, Symbol::Lit(1))
+    assert_eq!(res, Symbol::Lit(1));
 }

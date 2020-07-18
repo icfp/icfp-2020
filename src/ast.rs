@@ -257,9 +257,36 @@ fn eval_val(
             }
         }
 
-        // Symbol::C => {},
-        // Symbol::B => {},
-        // Symbol::Pwr2 => {},
+        Symbol::C => {
+            // https://en.wikipedia.org/wiki/B,_C,_K,_W_system
+            // C x y z = x z y
+
+            if let [x, y, z] = operands.as_slice() {
+                eval(
+                    &[Symbol::Ap, Symbol::Ap, x.clone(), z.clone(), y.clone()],
+                    vars,
+                )
+            } else {
+                unreachable!()
+            }
+        }
+
+        Symbol::B => {
+            // https://en.wikipedia.org/wiki/B,_C,_K,_W_system
+            // B x y z = x (y z)
+
+            if let [x, y, z] = operands.as_slice() {
+                eval(
+                    &[Symbol::Ap, x.clone(), Symbol::Ap, y.clone(), z.clone()],
+                    vars,
+                )
+            } else {
+                unreachable!()
+            }
+        }
+
+        Symbol::Pwr2 => lit1(operands, |x| i64::pow(2, x as u32)),
+
         // Symbol::I => {},
         // Symbol::Cons => {},
         // Symbol::Car => {},
