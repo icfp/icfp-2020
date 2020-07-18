@@ -219,65 +219,51 @@ fn lit2<T: Into<Symbol>>(
 }
 
 fn eval_fn(op: &SymbolCell, operands: &mut Vec<SymbolCell>, vars: &Environment) -> SymbolCell {
-    match num_args(op) {
-        0 => {
-            //         // assert!(operands.is_empty());
-            eval_val(op.clone(), operands.deref().clone(), vars)
-        }
-
-        x if x > 0 => {
+    match op.deref() {
+        &Symbol::Ap => {
             let arg = operands.pop().unwrap();
 
-            match (op.deref(), arg.deref()) {
-                (&Symbol::Ap, Symbol::PartFn(op, args, remaining)) => {
+            match arg.deref() {
+                Symbol::PartFn(op, args, remaining) => {
                     assert!(*remaining > 0);
                     let mut vec = args.clone();
                     vec.push(operands.pop().unwrap());
                     Symbol::PartFn(op.clone(), vec, remaining - 1).into()
                 }
 
-                (&Symbol::Ap, _) => {
-                    let remaining = num_args(arg.deref());
+                xxx => {
+                    let remaining = num_args(xxx);
                     Symbol::PartFn(
                         op.clone(),
-                        vec![arg, operands.pop().unwrap()],
+                        vec![arg.clone(), operands.pop().unwrap()],
                         remaining - 1,
                     )
                     .into()
                 }
-
-                _ => {
-                    dbg!(op);
-                    operands.push(arg);
-                    op.clone()
-                }
             }
         }
 
-        _ => {
-            dbg!(op);
-            eval_val(op.clone(), operands.deref().clone(), vars)
-        }
-    }
+        Symbol::PartFn(op0, args, 0) => eval_val(op0.clone(), args.clone(), vars),
 
-    // match num_args(op) {
-    //     0 => {
-    //         // assert!(operands.is_empty());
-    //         eval_val(op.clone(), operands.deref().clone(), vars)
-    //     }
-    //     x if x > 0 => {
-    //         let arg = operands.pop().unwrap();
-    //         if let Symbol::PartFn(sym, args, _) = op.deref() {
-    //             let mut new_args = args.clone();
-    //             new_args.push(arg);
-    //             Symbol::PartFn(Rc::clone(sym), new_args, x - 1).into()
-    //         } else {
-    //             operands.pop();
-    //             Symbol::PartFn(Symbol::Ap.into(), vec![op.clone().into(), arg], x - 1).into()
-    //         }
-    //     }
-    //     _ => unreachable!(),
-    // }
+        _ => op.clone(), // match num_args(op) {
+                         //     0 => {
+                         //         // assert!(operands.is_empty());
+                         //         eval_val(op.clone(), operands.deref().clone(), vars)
+                         //     }
+                         //     x if x > 0 => {
+                         //         let arg = operands.pop().unwrap();
+                         //         if let Symbol::PartFn(sym, args, _) = op.deref() {
+                         //             let mut new_args = args.clone();
+                         //             new_args.push(arg);
+                         //             Symbol::PartFn(Rc::clone(sym), new_args, x - 1).into()
+                         //         } else {
+                         //             operands.pop();
+                         //             Symbol::PartFn(Symbol::Ap.into(), vec![op.clone().into(), arg], x - 1).into()
+                         //         }
+                         //     }
+                         //     _ => unreachable!(),
+                         // }
+    }
 }
 
 fn eval_val(op: SymbolCell, operands: Vec<SymbolCell>, vars: &Environment) -> SymbolCell {
@@ -532,9 +518,11 @@ where
         stack.push(val);
     }
 
+    dbg!(&stack);
+
     assert_eq!(stack.len(), 1);
 
-    eval_val(stack.pop().unwrap(), Vec::new(), vars)
+    eval_fn(&stack.pop().unwrap(), &mut vec![], vars)
 }
 
 #[cfg(test)]
