@@ -40,6 +40,24 @@ fn inequality() {
 }
 
 #[test]
+fn cons() {
+    let res = eval_instructions(&[Ap, Ap, Cons, Lit(1), Lit(2)]);
+    assert_eq!(res, Pair(Box::new(Lit(1)), Box::new(Lit(2))));
+}
+
+#[test]
+fn car() {
+    let res = eval_instructions(&[Ap, Car, Ap, Ap, Cons, Lit(1), Lit(2)]);
+    assert_eq!(res, Lit(1))
+}
+
+#[test]
+fn cdr() {
+    let res = eval_instructions(&[Ap, Cdr, Ap, Ap, Cons, Lit(1), Lit(2)]);
+    assert_eq!(res, Lit(2))
+}
+
+#[test]
 fn message5() {
     // from https://message-from-space.readthedocs.io/en/latest/message5.html
 

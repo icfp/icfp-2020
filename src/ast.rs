@@ -94,6 +94,7 @@ pub enum Symbol {
     StatelessDraw,
     PartFn(Box<Symbol>, Vec<Symbol>, i8),
     StringValue(String),
+    Pair(Box<Symbol>, Box<Symbol>),
 }
 
 pub fn eval_instructions(tree: &[Symbol]) -> Symbol {
@@ -139,6 +140,7 @@ fn num_args(symbol: &Symbol) -> i8 {
         Symbol::StatelessDraw => 3,
         Symbol::PartFn(_, _, i) => *i,
         Symbol::StringValue(_) => 0,
+        Symbol::Pair(_, _) => 0,
     }
 }
 
@@ -288,9 +290,24 @@ fn eval_val(
         Symbol::Pwr2 => lit1(operands, |x| i64::pow(2, x as u32)),
 
         // Symbol::I => {},
-        // Symbol::Cons => {},
-        // Symbol::Car => {},
-        // Symbol::Cdr => {},
+        Symbol::Cons => {
+            if let [x, y] = operands.as_slice() {
+                Symbol::Pair(Box::from(x.clone()), Box::from(y.clone()))
+            } else {
+                unreachable!()
+            }
+        }
+
+        Symbol::Car => match operands.as_slice() {
+            [Symbol::Pair(v1, _)] => *(v1.clone()),
+            _ => unreachable!("Mod with invalid operands"),
+        },
+
+        Symbol::Cdr => match operands.as_slice() {
+            [Symbol::Pair(_, v2)] => *(v2.clone()),
+            _ => unreachable!("Mod with invalid operands"),
+        },
+
         // Symbol::Nil => {},
         // Symbol::IsNil => {},
         // Symbol::List(_) => {},
