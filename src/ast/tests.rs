@@ -170,3 +170,26 @@ fn message18() {
     let res = eval_instructions(&[Ap, Ap, Ap, S, Mul, Ap, Add, Lit(1), Lit(6)]);
     assert_eq!(res, Lit(42));
 }
+
+#[test]
+fn message21() {
+    /*
+    ap ap t x0 x1   =   x0
+    ap ap t 1 5   =   1
+    ap ap t t i   =   t
+    ap ap t t ap inc 5   =   t
+    ap ap t ap inc 5 t   =   6
+    */
+
+    let res = eval_instructions(&[Ap, Ap, T, Lit(1), Lit(5)]);
+    assert_eq!(res, Lit(1));
+
+    let res = eval_instructions(&[Ap, Ap, T, T, Lit(5)]);
+    assert_eq!(res, T);
+
+    let res = eval_instructions(&[Ap, Ap, T, T, Ap, Inc, Lit(5)]);
+    assert_eq!(res, T);
+
+    let res = eval_instructions(&[Ap, Ap, T, Ap, Inc, Lit(5), T]);
+    assert_eq!(res, Lit(6));
+}

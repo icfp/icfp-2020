@@ -71,8 +71,8 @@ fn num_args(symbol: &Symbol) -> i8 {
         Symbol::Var(_) => 0,
         Symbol::Mul => 2,
         Symbol::Div => 2,
-        Symbol::T => 0,
-        Symbol::F => 0,
+        Symbol::T => 2,
+        Symbol::F => 2,
         Symbol::Lt => 2,
         Symbol::Mod => 1,
         Symbol::Dem => 1,
@@ -152,7 +152,7 @@ fn eval_val(op: Symbol, raw_operands: Vec<Symbol>, vars: &mut HashMap<usize, Sym
                     Symbol::F
                 }
             } else {
-                unreachable!()
+                unreachable!("{:?}", operands)
             }
         }
         Symbol::Inc => lit1(operands, |x| x + 1),
@@ -167,7 +167,14 @@ fn eval_val(op: Symbol, raw_operands: Vec<Symbol>, vars: &mut HashMap<usize, Sym
 
         Symbol::Div => lit2(operands, |x, y| x / y),
 
-        // Symbol::T => {},
+        Symbol::T => {
+            if let [t, _] = operands.as_slice() {
+                t.clone()
+            } else {
+                unreachable!("{:?}", operands)
+            }
+        }
+
         // Symbol::F => {},
         // Symbol::Lt => {},
         // Symbol::Mod => {},
