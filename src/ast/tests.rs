@@ -279,6 +279,36 @@ fn message23() {
 }
 
 #[test]
+fn message24() {
+    /*
+    ap i x0   =   x0
+    ap i 1   =   1
+    ap i i   =   i
+    ap i add   =   add
+    ap i ap add 1   =   ap add 1
+    */
+
+    let res = eval(
+        &[Ap, I, Var(0)],
+        &mut vec![(Identifier::Var(0), Lit(42))].into_iter().collect(),
+    );
+
+    assert_eq!(res, Lit(42));
+
+    let res = eval_instructions(&[Ap, I, Lit(1)]);
+    assert_eq!(res, Lit(1));
+
+    let res = eval_instructions(&[Ap, I, I]);
+    assert_eq!(res, I);
+
+    let res = eval_instructions(&[Ap, I, Add]);
+    assert_eq!(res, Add);
+
+    let res = eval_instructions(&[Ap, I, Ap, Add, Lit(1)]);
+    assert_eq!(res, PartFn(Box::new(Add), vec![Lit(1)], 1));
+}
+
+#[test]
 fn message37() {
     let res = eval(
         &[Ap, Ap, Ap, If0, Lit(0), Var(1), Lit(2)],

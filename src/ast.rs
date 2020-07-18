@@ -289,7 +289,14 @@ fn eval_val(
 
         Symbol::Pwr2 => lit1(operands, |x| i64::pow(2, x as u32)),
 
-        // Symbol::I => {},
+        Symbol::I => {
+            if let [x] = operands.as_slice() {
+                x.clone()
+            } else {
+                unreachable!()
+            }
+        }
+
         Symbol::Cons => {
             if let [x, y] = operands.as_slice() {
                 Symbol::Pair(Box::from(x.clone()), Box::from(y.clone()))
