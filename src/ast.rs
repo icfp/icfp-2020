@@ -320,7 +320,6 @@ fn eval_val(
                 unreachable!()
             }
         }
-
         Symbol::Car => match operands.as_slice() {
             [Symbol::Pair(v1, _)] => *(v1.clone()),
             _ => unreachable!("Mod with invalid operands"),
@@ -347,7 +346,24 @@ fn eval_val(
 
         // Symbol::List(_) => {},
         // Symbol::Draw => {},
-        // Symbol::Checkerboard => {},
+        Symbol::Checkerboard => {
+            if let [Symbol::Lit(x), Symbol::Lit(y)] = operands.as_slice() {
+                let x_axis = (0..=*x).step_by(2);
+                let y_axis = (0..=*y).step_by(2);
+
+                return Symbol::List(
+                    x_axis
+                        .flat_map(|x| {
+                            y_axis.clone().map(move |y| {
+                                Symbol::Pair(Box::from(Symbol::Lit(x)), Box::from(Symbol::Lit(y)))
+                            })
+                        })
+                        .collect::<Vec<_>>(),
+                );
+            } else {
+                unreachable!()
+            }
+        }
         // Symbol::MultipleDraw => {},
         Symbol::If0 => {
             if let [literal, x, y] = operands.as_slice() {

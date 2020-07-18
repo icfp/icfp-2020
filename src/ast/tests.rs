@@ -394,6 +394,27 @@ fn message28() {
 }
 
 #[test]
+fn message33() {
+    let res = eval_instructions(&[Ap, Ap, Checkerboard, Lit(4), Lit(4)]);
+    dbg!(&res);
+
+    assert_eq!(
+        res,
+        List(vec![
+            Pair(Box::from(Lit(0)), Box::from(Lit(0))),
+            Pair(Box::from(Lit(0)), Box::from(Lit(2))),
+            Pair(Box::from(Lit(0)), Box::from(Lit(4))),
+            Pair(Box::from(Lit(2)), Box::from(Lit(0))),
+            Pair(Box::from(Lit(2)), Box::from(Lit(2))),
+            Pair(Box::from(Lit(2)), Box::from(Lit(4))),
+            Pair(Box::from(Lit(4)), Box::from(Lit(0))),
+            Pair(Box::from(Lit(4)), Box::from(Lit(2))),
+            Pair(Box::from(Lit(4)), Box::from(Lit(4)))
+        ])
+    )
+}
+
+#[test]
 fn message37() {
     let res = eval(
         &[Ap, Ap, Ap, If0, Lit(0), Var(1), Lit(2)],
