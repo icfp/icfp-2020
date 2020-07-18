@@ -1,6 +1,5 @@
 // https://message-from-space.readthedocs.io/en/latest/message7.html
 
-use crate::ast::Symbol::Lit;
 use std::cmp::max;
 use std::collections::{HashMap, VecDeque};
 use std::str::FromStr;
@@ -252,7 +251,7 @@ fn eval_val(
         // Symbol::Send => {},
         Symbol::Neg => {
             if let [Symbol::Lit(x)] = operands.as_slice() {
-                Lit(-x.clone())
+                Symbol::Lit(-x.clone())
             } else {
                 unreachable!()
             }
