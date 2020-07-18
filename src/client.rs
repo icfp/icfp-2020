@@ -1,3 +1,4 @@
+use reqwest::header::HeaderValue;
 use reqwest::Client as HttpClient;
 use reqwest::{Body, Error, Response};
 
@@ -31,9 +32,15 @@ impl Client {
     }
 
     pub async fn send<T: Into<String>>(&self, content: T) -> Result<Response, Error> {
+        let url = format!("{url}/aliens/send", url = self.server_url);
+        dbg!(&url);
         HttpClient::builder()
             .build()?
-            .post(&format!("{url}/aliens/send", url = self.server_url))
+            .post(&url)
+            .header(
+                reqwest::header::CONTENT_TYPE,
+                HeaderValue::from_str("text/plain").unwrap(),
+            )
             .body(Body::from(content.into()))
             .query(&[("apiKey", self.api_key.clone())])
             .send()

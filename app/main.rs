@@ -19,7 +19,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let mut program = Symbol::List(vec![Symbol::Lit(0)]);
 
     for _i in 0..50 {
-        let response = send_program(&client, &program).await;
+        dbg!(&program);
+        let response = dbg!(send_program(&client, &program).await);
         program = icfp::ast::eval_instructions(&[
             Symbol::Ap,
             Symbol::Inc,
