@@ -1,5 +1,6 @@
 // https://message-from-space.readthedocs.io/en/latest/message7.html
 
+use crate::ast::Symbol::Lit;
 use std::cmp::max;
 use std::collections::{HashMap, VecDeque};
 use std::str::FromStr;
@@ -222,9 +223,24 @@ fn eval_val(
                 unreachable!("{:?}", operands)
             }
         }
-
-        // Symbol::F => {},
-        // Symbol::Lt => {},
+        Symbol::F => {
+            if let [_, f] = operands.as_slice() {
+                f.clone()
+            } else {
+                unreachable!("{:?}", operands)
+            }
+        }
+        Symbol::Lt => {
+            if let [Symbol::Lit(x), Symbol::Lit(y)] = operands.as_slice() {
+                if x < y {
+                    Symbol::T
+                } else {
+                    Symbol::F
+                }
+            } else {
+                unreachable!("{:?}", operands)
+            }
+        }
         Symbol::Mod => match operands.as_slice() {
             [Symbol::Lit(val)] => functions::modulate(*val),
             _ => unreachable!("Mod with invalid operands"),
@@ -234,7 +250,13 @@ fn eval_val(
             _ => unreachable!("Dem with invalid operands"),
         },
         // Symbol::Send => {},
-        // Symbol::Neg => {},
+        Symbol::Neg => {
+            if let [Symbol::Lit(x)] = operands.as_slice() {
+                Lit(-x.clone())
+            } else {
+                unreachable!()
+            }
+        }
         Symbol::Ap => unreachable!("Should be handled by outer eval loop"),
 
         Symbol::S => {
