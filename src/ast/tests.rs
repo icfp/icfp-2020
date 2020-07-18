@@ -1,12 +1,10 @@
-use std::collections::HashMap;
-
 use crate::ast::Symbol::*;
 use crate::ast::{eval, eval_instructions, Identifier, Symbol};
 
 #[test]
 fn test_modulate() {
     fn val(s: &str) -> Symbol {
-        StringValue(s.to_string())
+        Modulated(s.bytes().map(|b| b == b'1').collect())
     }
 
     assert_eq!(eval_instructions(&[Ap, Mod, Lit(0)]), val("010"));

@@ -1,7 +1,6 @@
 use crate::ast::Statement;
-use pest::Parser;
 
-use crate::parser::{parse_as_lines, ProgramParser, Rule};
+use crate::parser::parse_as_lines;
 
 macro_rules! map (
     { $key:expr => $value:expr } => {
