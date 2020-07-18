@@ -10,11 +10,11 @@ fn test_modulate() {
         StringValue(s.to_string())
     }
 
-    assert_eq!(eval_instructions(&[Mod, Lit(0)]), val("010"));
-    assert_eq!(eval_instructions(&[Mod, Lit(1)]), val("01100001"));
-    assert_eq!(eval_instructions(&[Mod, Lit(-1)]), val("10100001"));
+    assert_eq!(eval_instructions(&[Ap, Mod, Lit(0)]), val("010"));
+    assert_eq!(eval_instructions(&[Ap, Mod, Lit(1)]), val("01100001"));
+    assert_eq!(eval_instructions(&[Ap, Mod, Lit(-1)]), val("10100001"));
     assert_eq!(
-        eval_instructions(&[Mod, Lit(256)]),
+        eval_instructions(&[Ap, Mod, Lit(256)]),
         val("011110000100000000")
     );
 }

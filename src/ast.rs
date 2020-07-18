@@ -290,7 +290,11 @@ pub fn eval(instructions: &[Symbol], vars: &mut HashMap<usize, Symbol>) -> Symbo
                 stack.push_back(res);
             }
 
-            Symbol::Var(idx) => stack.push_back(vars[idx].clone()),
+            Symbol::Var(idx) => stack.push_back(
+                vars.get(idx)
+                    .expect(&format!("Unable to find variable {}", idx))
+                    .clone(),
+            ),
 
             _ => stack.push_back(eval_thunk(inst.clone(), vars)),
         }

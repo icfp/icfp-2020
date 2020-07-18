@@ -47,7 +47,6 @@ pub fn modulate_to_string(value: Number) -> String {
     let value = value.abs();
 
     let number_of_bits_for_number = log_2(value) + 1;
-    dbg!(number_of_bits_for_number);
 
     let remainder = if number_of_bits_for_number % 4 != 0 {
         1
