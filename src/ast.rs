@@ -10,6 +10,9 @@ type Number = i64;
 
 mod functions;
 
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct Statement(pub Identifier, pub Vec<Symbol>);
+
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub enum Identifier {
     Name(String),
@@ -158,7 +161,7 @@ fn lit2(operands: Vec<Symbol>, f: fn(Number, Number) -> Number) -> Symbol {
 fn eval_fn(
     op: Symbol,
     operands: &mut VecDeque<Symbol>,
-    vars: &mut HashMap<usize, Symbol>,
+    vars: &mut HashMap<Identifier, Symbol>,
 ) -> Symbol {
     match num_args(&op) {
         0 => eval_val(op, Vec::new(), vars),
@@ -175,7 +178,11 @@ fn eval_fn(
     }
 }
 
-fn eval_val(op: Symbol, raw_operands: Vec<Symbol>, vars: &mut HashMap<usize, Symbol>) -> Symbol {
+fn eval_val(
+    op: Symbol,
+    raw_operands: Vec<Symbol>,
+    vars: &mut HashMap<Identifier, Symbol>,
+) -> Symbol {
     let operands: Vec<Symbol> = raw_operands
         .iter()
         .map(|x| eval(&[x.clone()], vars))
@@ -282,7 +289,7 @@ fn eval_val(op: Symbol, raw_operands: Vec<Symbol>, vars: &mut HashMap<usize, Sym
     }
 }
 
-fn eval_thunk(instruction: Symbol, vars: &mut HashMap<usize, Symbol>) -> Symbol {
+fn eval_thunk(instruction: Symbol, vars: &mut HashMap<Identifier, Symbol>) -> Symbol {
     match instruction {
         Symbol::PartFn(op, operands, 0) => eval_val(*op.clone(), operands.clone(), vars),
 
@@ -290,7 +297,37 @@ fn eval_thunk(instruction: Symbol, vars: &mut HashMap<usize, Symbol>) -> Symbol 
     }
 }
 
-pub fn eval(instructions: &[Symbol], vars: &mut HashMap<usize, Symbol>) -> Symbol {
+pub fn interpret(statements: Vec<Statement>) -> Symbol {
+    #[derive(Clone, Debug)]
+    struct Result {
+        environment: HashMap<Identifier, Symbol>,
+        last: Option<Symbol>,
+    }
+
+    impl Default for Result {
+        fn default() -> Self {
+            Self {
+                environment: HashMap::new(),
+                last: None,
+            }
+        }
+    }
+
+    statements
+        .iter()
+        .fold(Result::default(), |mut acc, statement| {
+            let symbol = eval(&statement.1, &mut acc.environment);
+            acc.environment.insert(statement.0.clone(), symbol.clone());
+            Result {
+                last: Some(symbol),
+                ..acc
+            }
+        })
+        .last
+        .unwrap()
+}
+
+pub fn eval(instructions: &[Symbol], vars: &mut HashMap<Identifier, Symbol>) -> Symbol {
     let mut stack = VecDeque::<Symbol>::new();
     for inst in instructions.iter().rev() {
         match inst {
@@ -301,7 +338,7 @@ pub fn eval(instructions: &[Symbol], vars: &mut HashMap<usize, Symbol>) -> Symbo
             }
 
             Symbol::Var(idx) => stack.push_back(
-                vars.get(idx)
+                vars.get(&Identifier::Var(*idx))
                     .expect(&format!("Unable to find variable {}", idx))
                     .clone(),
             ),

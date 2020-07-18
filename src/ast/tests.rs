@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use crate::ast::Symbol::*;
-use crate::ast::{eval, eval_instructions, Symbol};
+use crate::ast::{eval, eval_instructions, Identifier, Symbol};
 
 #[test]
 fn test_modulate() {
@@ -107,21 +107,23 @@ fn message9() {
 
     let res = eval(
         &[Ap, Ap, Mul, Var(0), Var(1)],
-        &mut vec![(0, Lit(42)), (1, Lit(7))].into_iter().collect(),
+        &mut vec![(Identifier::Var(0), Lit(42)), (Identifier::Var(1), Lit(7))]
+            .into_iter()
+            .collect(),
     );
 
     assert_eq!(res, Lit(294));
 
     let res = eval(
         &[Ap, Ap, Mul, Var(0), Lit(0)],
-        &mut vec![(0, Lit(42))].into_iter().collect(),
+        &mut vec![(Identifier::Var(0), Lit(42))].into_iter().collect(),
     );
 
     assert_eq!(res, Lit(0));
 
     let res = eval(
         &[Ap, Ap, Mul, Var(0), Lit(1)],
-        &mut vec![(0, Lit(42))].into_iter().collect(),
+        &mut vec![(Identifier::Var(0), Lit(42))].into_iter().collect(),
     );
 
     assert_eq!(res, Lit(42));
@@ -170,7 +172,7 @@ fn message10() {
 
     let res = eval(
         &[Ap, Ap, Div, Var(0), Lit(1)],
-        &mut vec![(0, Lit(42))].into_iter().collect(),
+        &mut vec![(Identifier::Var(0), Lit(42))].into_iter().collect(),
     );
 
     assert_eq!(res, Lit(42));
@@ -223,7 +225,7 @@ fn message21() {
 fn message37_is_0() {
     let res = eval(
         &[Ap, Ap, Ap, If0, Lit(0), Var(1), Lit(2)],
-        &mut vec![(1, Lit(42))].into_iter().collect(),
+        &mut vec![(Identifier::Var(1), Lit(42))].into_iter().collect(),
     );
 
     assert_eq!(res, Lit(42))

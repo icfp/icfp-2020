@@ -1,15 +1,12 @@
+use crate::ast::Statement;
 use pest::Parser;
 
 use crate::parser::{parse_as_lines, ProgramParser, Rule};
 
 macro_rules! map (
-    { $($key:expr => $value:expr),+ } => {
+    { $key:expr => $value:expr } => {
         {
-            let mut m = ::std::collections::HashMap::new();
-            $(
-                m.insert($key, $value);
-            )+
-            m
+            vec![Statement($key, $value)]
         }
      };
 );
@@ -23,7 +20,7 @@ fn parse_assignment() {
     use crate::ast::Identifier;
     use crate::ast::Symbol::*;
     let expected = map!(
-        Identifier::Var(1029) => List(vec![Ap, Ap, Cons, Lit(7), Ap, Ap, Cons, Lit(123229502148636), Nil])
+        Identifier::Var(1029) => vec![Ap, Ap, Cons, Lit(7), Ap, Ap, Cons, Lit(123229502148636), Nil]
     );
 
     assert_eq!(expected, map);
@@ -39,7 +36,7 @@ fn parse_inc() {
     use crate::ast::Identifier;
     use crate::ast::Symbol::*;
     let expected = map!(
-        Identifier::Var(1029) => List(vec![Ap, Inc, Lit(300), Nil])
+        Identifier::Var(1029) => vec![Ap, Inc, Lit(300), Nil]
     );
     assert_eq!(expected, map);
     println!("{:?}", map);
@@ -54,7 +51,7 @@ fn parse_eq() {
     use crate::ast::Identifier;
     use crate::ast::Symbol::*;
     let expected = map!(
-        Identifier::Name("t".to_string()) => List(vec![Ap, Ap, Eq, Var(0), Var(0)])
+        Identifier::Name("t".to_string()) => vec![Ap, Ap, Eq, Var(0), Var(0)]
     );
 
     assert_eq!(expected, map);
@@ -70,7 +67,7 @@ fn parse_mod() {
     use crate::ast::Identifier;
     use crate::ast::Symbol::*;
     let expected = map!(
-        Identifier::Var(0) => List(vec![Ap, Mod, Lit(0)])
+        Identifier::Var(0) => vec![Ap, Mod, Lit(0)]
     );
 
     assert_eq!(expected, map);
@@ -86,7 +83,7 @@ fn parse_mod_with_negative() {
     use crate::ast::Identifier;
     use crate::ast::Symbol::*;
     let expected = map!(
-        Identifier::Var(0) => List(vec![Ap, Mod, Lit(-10)])
+        Identifier::Var(0) => vec![Ap, Mod, Lit(-10)]
     );
 
     assert_eq!(expected, map);

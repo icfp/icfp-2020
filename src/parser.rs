@@ -1,18 +1,21 @@
-use crate::ast::{Identifier, Symbol};
+use std::collections::HashMap;
+use std::str::FromStr;
+
 use pest::iterators::{Pair, Pairs};
 use pest::Parser;
 use pest_derive::Parser;
-use std::collections::HashMap;
-use std::str::FromStr;
 use tokio::stream::StreamExt;
+
+use crate::ast::{Identifier, Statement, Symbol};
 
 #[derive(Parser)]
 #[grammar = "parser/grammar.pest"] // relative to src
 struct ProgramParser;
 
-fn parse_as_lines(input: &str) -> HashMap<Identifier, Symbol> {
+pub fn parse_as_lines(input: &str) -> Vec<Statement> {
     let lines = input.split('\n');
-    let mut map = HashMap::new();
+    let mut statements = Vec::new();
+
     for line in lines {
         let parsed_line = ProgramParser::parse(Rule::line, line)
             .expect("failed to parse line")
@@ -55,10 +58,10 @@ fn parse_as_lines(input: &str) -> HashMap<Identifier, Symbol> {
 
         dbg!(&symbols);
 
-        map.insert(id, Symbol::List(symbols));
+        statements.push(Statement(id, symbols))
     }
 
-    map
+    statements
 }
 
 #[cfg(test)]
