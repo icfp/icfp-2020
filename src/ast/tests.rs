@@ -150,3 +150,20 @@ fn message10() {
 
     assert_eq!(res, Lit(42));
 }
+
+#[test]
+fn message18() {
+    /*
+    ap ap ap s x0 x1 x2   =   ap ap x0 x2 ap x1 x2
+    ap ap ap s add inc 1   =   3
+    ap ap ap s mul ap add 1 6   =   42
+    */
+
+    // let res = eval(
+    //     &[Ap, Ap, Ap, S, Div, Var(0), Lit(1)],
+    //     &mut vec![(0, Lit(42))].into_iter().collect(),
+    // );
+
+    let res = eval_instructions(&[Ap, Ap, Ap, S, Add, Inc, Lit(1)]);
+    assert_eq!(res, Lit(3));
+}

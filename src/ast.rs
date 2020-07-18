@@ -104,7 +104,7 @@ fn lit1(operands: Vec<Symbol>, f: fn(i64) -> i64) -> Symbol {
     if let [Symbol::Lit(x)] = operands.as_slice() {
         Symbol::Lit(f(*x))
     } else {
-        panic!()
+        unreachable!("{:?}", operands);
     }
 }
 
@@ -112,7 +112,7 @@ fn lit2(operands: Vec<Symbol>, f: fn(i64, i64) -> i64) -> Symbol {
     if let [Symbol::Lit(x), Symbol::Lit(y)] = operands.as_slice() {
         Symbol::Lit(f(*x, *y))
     } else {
-        panic!()
+        unreachable!("{:?}", operands);
     }
 }
 
@@ -139,8 +139,10 @@ fn eval_fn(
 fn eval_val(op: Symbol, raw_operands: Vec<Symbol>, vars: &mut HashMap<usize, Symbol>) -> Symbol {
     let operands: Vec<Symbol> = raw_operands
         .iter()
-        .map(|x| eval_val(x.clone(), Vec::new(), vars))
+        .map(|x| eval(&[x.clone()], vars))
         .collect();
+
+    println!("{:?}", op.clone());
 
     match op {
         Symbol::Lit(_) => op,
@@ -152,7 +154,7 @@ fn eval_val(op: Symbol, raw_operands: Vec<Symbol>, vars: &mut HashMap<usize, Sym
                     Symbol::F
                 }
             } else {
-                panic!()
+                unreachable!()
             }
         }
         Symbol::Inc => lit1(operands, |x| x + 1),
@@ -161,7 +163,7 @@ fn eval_val(op: Symbol, raw_operands: Vec<Symbol>, vars: &mut HashMap<usize, Sym
 
         Symbol::Add => lit2(operands, |x, y| x + y),
 
-        Symbol::Var(idx) => vars[&idx].clone(),
+        Symbol::Var(_) => unreachable!("Should be handled by outer eval loop"),
 
         Symbol::Mul => lit2(operands, |x, y| x * y),
 
@@ -174,8 +176,30 @@ fn eval_val(op: Symbol, raw_operands: Vec<Symbol>, vars: &mut HashMap<usize, Sym
         // Symbol::Dem => {},
         // Symbol::Send => {},
         // Symbol::Neg => {},
-        // Symbol::Ap => {},
-        // Symbol::S => {},
+        Symbol::Ap => unreachable!("Should be handled by outer eval loop"),
+
+        Symbol::S => {
+            // https://en.wikipedia.org/wiki/SKI_combinator_calculus
+            // Sxyz = xz(yz)
+
+            if let [x, y, z] = operands.as_slice() {
+                eval(
+                    &[
+                        Symbol::Ap,
+                        Symbol::Ap,
+                        x.clone(),
+                        z.clone(),
+                        Symbol::Ap,
+                        y.clone(),
+                        z.clone(),
+                    ],
+                    vars,
+                )
+            } else {
+                unreachable!()
+            }
+        }
+
         // Symbol::C => {},
         // Symbol::B => {},
         // Symbol::Pwr2 => {},
@@ -192,8 +216,17 @@ fn eval_val(op: Symbol, raw_operands: Vec<Symbol>, vars: &mut HashMap<usize, Sym
         // Symbol::If0 => {},
         // Symbol::Interact => {},
         // Symbol::StatelessDraw => {},
-        Symbol::PartFn(op0, args, 0) => eval_val(*op0, args, vars),
+        Symbol::PartFn(op0, args, 0) => unreachable!("Should be handled by outer eval loop"),
+
         _ => unimplemented!("{0:?} is not implemented", op),
+    }
+}
+
+fn eval_thunk(instruction: Symbol, vars: &mut HashMap<usize, Symbol>) -> Symbol {
+    match instruction {
+        Symbol::PartFn(op, operands, 0) => eval_val(*op.clone(), operands.clone(), vars),
+
+        _ => instruction,
     }
 }
 
@@ -206,13 +239,16 @@ pub fn eval(instructions: &[Symbol], vars: &mut HashMap<usize, Symbol>) -> Symbo
                 let res = eval_fn(op, &mut stack, vars);
                 stack.push_back(res);
             }
-            _ => stack.push_back(inst.clone()),
+
+            Symbol::Var(idx) => stack.push_back(vars[idx].clone()),
+
+            _ => stack.push_back(eval_thunk(inst.clone(), vars)),
         }
     }
 
     assert_eq!(stack.len(), 1);
 
-    eval_val(stack.pop_back().unwrap(), Vec::new(), vars)
+    eval_thunk(stack.pop_back().unwrap(), vars)
 }
 
 #[cfg(test)]
