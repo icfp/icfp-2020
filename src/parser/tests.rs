@@ -31,6 +31,21 @@ fn parse_assignment() {
 }
 
 #[test]
+fn parse_inc() {
+    // https://pest.rs/book/examples/csv.html#writing-the-parser
+
+    let map = parse_as_lines(":1029 = ap inc 300 nil");
+
+    use crate::ast::Identifier;
+    use crate::ast::Symbol::*;
+    let expected = map!(
+        Identifier::Var(1029) => List(vec![Ap, Inc, Lit(300), Nil])
+    );
+    assert_eq!(expected, map);
+    println!("{:?}", map);
+}
+
+#[test]
 fn parse_eq() {
     // https://pest.rs/book/examples/csv.html#writing-the-parser
 

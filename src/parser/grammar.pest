@@ -23,9 +23,10 @@ ap = { "ap"  }
 cons = { "cons" | "vec" }
 neg = { "neg" }
 eq = { "eq" }
+inc = { "inc" }
 modulate = { "mod" }
 
-symbol = _{ ap | cons | var | number | nil | eq | modulate }
+symbol = _{ ap | cons | var | number | nil | eq | inc | modulate }
 
 id = { var | identifier }
 assignment = { id ~ "=" ~ symbol+ }
