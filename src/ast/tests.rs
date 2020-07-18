@@ -1,35 +1,22 @@
-use crate::ast::{eval_instructions, Symbol};
+use crate::ast::Symbol::*;
+use crate::ast::{eval, eval_instructions, Symbol};
+use std::collections::HashMap;
 
 #[test]
 fn equality() {
-    let res = eval_instructions(&[
-        Symbol::Ap,
-        Symbol::Ap,
-        Symbol::Eq,
-        Symbol::Lit(1),
-        Symbol::Lit(1),
-    ]);
-    assert_eq!(res, Symbol::T);
+    let res = eval_instructions(&[Ap, Ap, Eq, Lit(1), Lit(1)]);
+    assert_eq!(res, T);
 }
 
 #[test]
 fn inequality() {
-    let res = eval_instructions(&[
-        Symbol::Ap,
-        Symbol::Ap,
-        Symbol::Eq,
-        Symbol::Lit(1),
-        Symbol::Lit(2),
-    ]);
-    assert_eq!(res, Symbol::F);
+    let res = eval_instructions(&[Ap, Ap, Eq, Lit(1), Lit(2)]);
+    assert_eq!(res, F);
 }
 
 #[test]
 fn message5() {
     // from https://message-from-space.readthedocs.io/en/latest/message5.html
-
-    let res = eval_instructions(&[Symbol::Ap, Symbol::Inc, Symbol::Lit(0)]);
-    assert_eq!(res, Symbol::Lit(1));
 
     /*
     ap inc 0   =   1
@@ -42,4 +29,75 @@ fn message5() {
     ap inc -2   =   -1
     ap inc -3   =   -2
     */
+
+    let res = eval_instructions(&[Ap, Inc, Lit(0)]);
+    assert_eq!(res, Lit(1));
+
+    let res = eval_instructions(&[Ap, Inc, Lit(1)]);
+    assert_eq!(res, Lit(2));
+
+    let res = eval_instructions(&[Ap, Inc, Lit(2)]);
+    assert_eq!(res, Lit(3));
+
+    let res = eval_instructions(&[Ap, Inc, Lit(3)]);
+    assert_eq!(res, Lit(4));
+
+    let res = eval_instructions(&[Ap, Inc, Lit(300)]);
+    assert_eq!(res, Lit(301));
+
+    let res = eval_instructions(&[Ap, Inc, Lit(301)]);
+    assert_eq!(res, Lit(302));
+
+    let res = eval_instructions(&[Ap, Inc, Lit(-1)]);
+    assert_eq!(res, Lit(0));
+
+    let res = eval_instructions(&[Ap, Inc, Lit(-2)]);
+    assert_eq!(res, Lit(-1));
+
+    let res = eval_instructions(&[Ap, Inc, Lit(-3)]);
+    assert_eq!(res, Lit(-2));
+}
+
+#[test]
+fn message9() {
+    // https://message-from-space.readthedocs.io/en/latest/message9.html
+
+    /*
+    ap ap mul 4 2   =   8
+    ap ap mul 3 4   =   12
+    ap ap mul 3 -2   =   -6
+    ap ap mul x0 x1   =   ap ap mul x1 x0
+    ap ap mul x0 0   =   0
+    ap ap mul x0 1   =   x0
+    */
+
+    let res = eval_instructions(&[Ap, Ap, Mul, Lit(4), Lit(2)]);
+    assert_eq!(res, Lit(8));
+
+    let res = eval_instructions(&[Ap, Ap, Mul, Lit(3), Lit(4)]);
+    assert_eq!(res, Lit(12));
+
+    let res = eval_instructions(&[Ap, Ap, Mul, Lit(3), Lit(-2)]);
+    assert_eq!(res, Lit(-6));
+
+    let res = eval(
+        &[Ap, Ap, Mul, Var(0), Var(1)],
+        &mut vec![(0, Lit(42)), (1, Lit(7))].into_iter().collect(),
+    );
+
+    assert_eq!(res, Lit(294));
+
+    let res = eval(
+        &[Ap, Ap, Mul, Var(0), Lit(0)],
+        &mut vec![(0, Lit(42))].into_iter().collect(),
+    );
+
+    assert_eq!(res, Lit(0));
+
+    let res = eval(
+        &[Ap, Ap, Mul, Var(0), Lit(1)],
+        &mut vec![(0, Lit(42))].into_iter().collect(),
+    );
+
+    assert_eq!(res, Lit(42));
 }

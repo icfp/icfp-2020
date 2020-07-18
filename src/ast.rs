@@ -116,7 +116,11 @@ fn lit2(operands: Vec<Symbol>, f: fn(i64, i64) -> i64) -> Symbol {
     }
 }
 
-fn eval_fn(op: Symbol, operands: &mut VecDeque<Symbol>, vars: &mut HashMap<i32, Symbol>) -> Symbol {
+fn eval_fn(
+    op: Symbol,
+    operands: &mut VecDeque<Symbol>,
+    vars: &mut HashMap<usize, Symbol>,
+) -> Symbol {
     match num_args(&op) {
         0 => eval_val(op, Vec::new(), vars),
         x if x > 0 => {
@@ -132,7 +136,12 @@ fn eval_fn(op: Symbol, operands: &mut VecDeque<Symbol>, vars: &mut HashMap<i32, 
     }
 }
 
-fn eval_val(op: Symbol, operands: Vec<Symbol>, vars: &mut HashMap<i32, Symbol>) -> Symbol {
+fn eval_val(op: Symbol, raw_operands: Vec<Symbol>, vars: &mut HashMap<usize, Symbol>) -> Symbol {
+    let operands: Vec<Symbol> = raw_operands
+        .iter()
+        .map(|x| eval_val(x.clone(), Vec::new(), vars))
+        .collect();
+
     match op {
         Symbol::Lit(_) => op,
         Symbol::Eq => {
@@ -151,7 +160,11 @@ fn eval_val(op: Symbol, operands: Vec<Symbol>, vars: &mut HashMap<i32, Symbol>) 
         Symbol::Dec => lit1(operands, |x| x - 1),
 
         Symbol::Add => lit2(operands, |x, y| x + y),
-        // Symbol::Mul => {},
+
+        Symbol::Var(idx) => vars[&idx].clone(),
+
+        Symbol::Mul => lit2(operands, |x, y| x * y),
+
         // Symbol::Div => {},
         // Symbol::T => {},
         // Symbol::F => {},
@@ -183,7 +196,7 @@ fn eval_val(op: Symbol, operands: Vec<Symbol>, vars: &mut HashMap<i32, Symbol>) 
     }
 }
 
-fn eval(instructions: &[Symbol], vars: &mut HashMap<i32, Symbol>) -> Symbol {
+pub fn eval(instructions: &[Symbol], vars: &mut HashMap<usize, Symbol>) -> Symbol {
     let mut stack = VecDeque::<Symbol>::new();
     for inst in instructions.iter().rev() {
         match inst {
