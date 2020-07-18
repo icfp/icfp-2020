@@ -2,8 +2,13 @@
 
 use std::cmp::max;
 use std::collections::{HashMap, VecDeque};
+use std::str::FromStr;
 
 type BSymbol = Box<Symbol>;
+
+type Number = i64;
+
+mod functions;
 
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub enum Identifier {
@@ -13,46 +18,79 @@ pub enum Identifier {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Symbol {
-    Lit(i64),          // 1-3
-    Eq,                // 4
-    Inc,               // 5
-    Dec,               // 6
-    Add,               // 7
-    Var(usize),        // 8
-    Mul,               // 9
-    Div,               // 10
-    T,                 // 11 & 21
-    F,                 // 11 & 22
-    Lt,                // 12
-    Mod,               // 13
-    Dem,               // 14
-    Send,              // 15
-    Neg,               // 16
-    Ap,                // 17
-    S,                 // 18
-    C,                 // 19
-    B,                 // 20
-    Pwr2,              // 23
-    I,                 // 24
-    Cons,              // 25
-    Car,               // 26
-    Cdr,               // 27
-    Nil,               // 28
-    IsNil,             // 29
-    List(Vec<Symbol>), // 30
+    Lit(Number),
+    // 1-3
+    Eq,
+    // 4
+    Inc,
+    // 5
+    Dec,
+    // 6
+    Add,
+    // 7
+    Var(usize),
+    // 8
+    Mul,
+    // 9
+    Div,
+    // 10
+    T,
+    // 11 & 21
+    F,
+    // 11 & 22
+    Lt,
+    // 12
+    Mod,
+    // 13
+    Dem,
+    // 14
+    Send,
+    // 15
+    Neg,
+    // 16
+    Ap,
+    // 17
+    S,
+    // 18
+    C,
+    // 19
+    B,
+    // 20
+    Pwr2,
+    // 23
+    I,
+    // 24
+    Cons,
+    // 25
+    Car,
+    // 26
+    Cdr,
+    // 27
+    Nil,
+    // 28
+    IsNil,
+    // 29
+    List(Vec<Symbol>),
+    // 30
     // 31 .. vec = alias for cons that looks nice in “vector” usage context.
-    Draw,         // 32
-    Checkerboard, // 33
-    MultipleDraw, // 34
+    Draw,
+    // 32
+    Checkerboard,
+    // 33
+    MultipleDraw,
+    // 34
     // 35 = modulate list, doesn't seem to map to an operation
     // 36 = send 0:
     //   :1678847
     //   ap send ( 0 )   =   ( 1 , :1678847 )
-    If0,      // 37
-    Interact, // 38
+    If0,
+    // 37
+    Interact,
+    // 38
     // 39 = interaction protocol
     StatelessDraw,
     PartFn(Box<Symbol>, Vec<Symbol>, i8),
+    StringValue(String),
 }
 
 pub fn eval_instructions(tree: &[Symbol]) -> Symbol {
@@ -97,10 +135,11 @@ fn num_args(symbol: &Symbol) -> i8 {
         Symbol::Interact => 3,
         Symbol::StatelessDraw => 3,
         Symbol::PartFn(_, _, i) => *i,
+        Symbol::StringValue(_) => 0,
     }
 }
 
-fn lit1(operands: Vec<Symbol>, f: fn(i64) -> i64) -> Symbol {
+fn lit1(operands: Vec<Symbol>, f: fn(Number) -> Number) -> Symbol {
     if let [Symbol::Lit(x)] = operands.as_slice() {
         Symbol::Lit(f(*x))
     } else {
@@ -108,7 +147,7 @@ fn lit1(operands: Vec<Symbol>, f: fn(i64) -> i64) -> Symbol {
     }
 }
 
-fn lit2(operands: Vec<Symbol>, f: fn(i64, i64) -> i64) -> Symbol {
+fn lit2(operands: Vec<Symbol>, f: fn(Number, Number) -> Number) -> Symbol {
     if let [Symbol::Lit(x), Symbol::Lit(y)] = operands.as_slice() {
         Symbol::Lit(f(*x, *y))
     } else {
@@ -177,7 +216,13 @@ fn eval_val(op: Symbol, raw_operands: Vec<Symbol>, vars: &mut HashMap<usize, Sym
 
         // Symbol::F => {},
         // Symbol::Lt => {},
-        // Symbol::Mod => {},
+        Symbol::Mod => {
+            let val = eval(operands.as_slice(), vars);
+            match val {
+                Symbol::Lit(val) => functions::modulate(val),
+                _ => unreachable!("Mod with invalid operands"),
+            }
+        }
         // Symbol::Dem => {},
         // Symbol::Send => {},
         // Symbol::Neg => {},

@@ -1,6 +1,23 @@
+use std::collections::HashMap;
+
+use crate::ast::functions::{modulate, modulate_to_string};
 use crate::ast::Symbol::*;
 use crate::ast::{eval, eval_instructions, Symbol};
-use std::collections::HashMap;
+
+#[test]
+fn test_modulate() {
+    fn val(s: &str) -> Symbol {
+        StringValue(s.to_string())
+    }
+
+    assert_eq!(eval_instructions(&[Mod, Lit(0)]), val("010"));
+    assert_eq!(eval_instructions(&[Mod, Lit(1)]), val("01100001"));
+    assert_eq!(eval_instructions(&[Mod, Lit(-1)]), val("10100001"));
+    assert_eq!(
+        eval_instructions(&[Mod, Lit(256)]),
+        val("011110000100000000")
+    );
+}
 
 #[test]
 fn equality() {
