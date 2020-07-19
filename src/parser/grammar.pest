@@ -27,6 +27,7 @@ neg = { "neg" }
 eq = { "eq" }
 lt = { "lt" }
 inc = { "inc" }
+dec = { "dec" }
 modulate = { "mod" }
 demodulate = { "dem" }
 mul = { "mul" }
@@ -42,8 +43,8 @@ if0 = { "if0" }
 isnil = { "isnil" }
 list = { "(" ~ (symbol ~ ("," ~ symbol)*)? ~ ")" }
 
-symbol = _{ ap | cons | car | cdr | neg | var | number | nil | eq | lt | inc |
- div | mul | add | modulate | demodulate | list | s | c | b | if0 | isnil | i | t | f
+symbol = _{ ap | cons | car | cdr | dec | neg | var | number | nil | eq | lt |
+ div | mul | add | modulate | demodulate | list | s | c | b | if0 |  inc | isnil | i | t | f
 }
 
 id = { var | identifier }

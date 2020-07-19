@@ -8,8 +8,8 @@ pub use modulations::{demodulate_string, modulate_to_string};
 
 use crate::ast::Symbol::PartFn;
 
-type Number = i64;
-type SymbolCell = Rc<Symbol>;
+pub type Number = i64;
+pub type SymbolCell = Rc<Symbol>;
 type Environment = HashMap<Identifier, Vec<SymbolCell>>;
 
 mod modulations;
@@ -98,6 +98,7 @@ pub enum Symbol {
     StatelessDraw,
     PartFn(SymbolCell, Vec<SymbolCell>, i8),
     Pair(SymbolCell, SymbolCell),
+    ApplyPair(SymbolCell, SymbolCell),
     Modulated(modulations::Modulated),
 }
 
@@ -159,6 +160,7 @@ impl Symbol {
             Symbol::PartFn(_, _, i) => *i,
             Symbol::Pair(_, _) => 0,
             Symbol::Modulated(_) => 0,
+            Symbol::ApplyPair(_, _) => unreachable!(),
         }
     }
 }
@@ -530,7 +532,7 @@ fn apply(op: SymbolCell, operands: Vec<SymbolCell>, vars: &Environment) -> Symbo
     }
 }
 
-fn lower_symbols<T>(symbols: &[T]) -> Vec<SymbolCell>
+pub fn lower_symbols<T>(symbols: &[T]) -> Vec<SymbolCell>
 where
     T: Into<SymbolCell> + Clone,
 {
@@ -545,19 +547,14 @@ where
     T: Into<SymbolCell> + Clone,
 {
     let mut stack = Vec::<SymbolCell>::new();
-
     let lowered_symbols: Vec<SymbolCell> = lower_symbols(instructions);
-
     for inst in lowered_symbols.iter().rev() {
         let val = eval_thunks(inst, &mut stack, vars);
         stack.push(val);
     }
-
-    // dbg!(&stack);
-
+    dbg!(&stack);
     // assert_eq!(stack.len(), 1);
-
-    stack.pop().unwrap().into()
+    stack.pop().unwrap().force(vars).into()
 }
 
 pub fn interpret(statements: Vec<Statement>) -> Symbol {

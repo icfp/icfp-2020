@@ -27,6 +27,7 @@ fn parse_pair(pair: Pair<'_, Rule>) -> Symbol {
         Rule::lt => Symbol::Lt,
         Rule::neg => Symbol::Neg,
         Rule::inc => Symbol::Inc,
+        Rule::dec => Symbol::Dec,
         Rule::s => Symbol::S,
         Rule::c => Symbol::C,
         Rule::b => Symbol::B,

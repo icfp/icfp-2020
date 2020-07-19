@@ -1,5 +1,4 @@
 use super::ast::Symbol::*;
-use crate::ast::modulate_to_string;
 
 #[test]
 fn run_inc_1() {
@@ -21,6 +20,18 @@ fn run_inc_var() {
 }
 
 #[test]
+#[ignore]
+fn test_lookahead() {
+    let symbol = super::run(
+        ":1 = ap add 1
+                                     :2 = ap :1 2",
+    );
+    dbg!(&symbol);
+
+    assert_eq!(symbol, Lit(3))
+}
+
+#[test]
 fn test_laziness() {
     let symbol = super::run(":1 = ap ap ap if0 1 :1 3");
     dbg!(&symbol);
@@ -29,6 +40,15 @@ fn test_laziness() {
 }
 
 #[test]
+fn run_simple_add() {
+    let symbol = super::run(":1 = ap ap add 1 2");
+    dbg!(&symbol);
+
+    assert_eq!(symbol, Lit(3))
+}
+
+#[test]
+#[ignore]
 fn run_simple() {
     let symbol = super::run(
         ":1 = ap add 1

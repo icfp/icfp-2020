@@ -1,5 +1,5 @@
 use crate::ast::Symbol::*;
-use crate::ast::{eval, eval_instructions, Identifier, Symbol, SymbolCell};
+use crate::ast::{eval, eval_instructions, Identifier, Symbol};
 use std::ops::Deref;
 
 #[test]
