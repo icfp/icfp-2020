@@ -3,7 +3,7 @@ use std::ops::Deref;
 
 use crate::ast::lower_symbols;
 
-use super::ast::{Identifier, Number, Statement, Symbol, SymbolCell};
+use super::ast::{Canonicalize, Identifier, Number, Statement, Symbol, SymbolCell};
 
 use crate::ast::modulations;
 

@@ -167,7 +167,7 @@ impl Symbol {
     }
 }
 
-trait Canonicalize {
+pub trait Canonicalize {
     fn canonicalize(&self) -> Self;
 }
 
