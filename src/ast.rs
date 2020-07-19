@@ -7,7 +7,30 @@ use std::rc::Rc;
 pub use modulations::{demodulate_string, modulate_to_string};
 
 pub type Number = i64;
-pub type SymbolCell = Rc<Symbol>;
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SymbolCell(Rc<Symbol>);
+
+impl From<Symbol> for SymbolCell {
+    fn from(symbol: Symbol) -> Self {
+        SymbolCell(symbol.into())
+    }
+}
+
+impl From<&Symbol> for SymbolCell {
+    fn from(symbol: &Symbol) -> Self {
+        SymbolCell(symbol.clone().into())
+    }
+}
+
+impl Deref for SymbolCell {
+    type Target = Symbol;
+
+    fn deref(&self) -> &Self::Target {
+        self.0.deref()
+    }
+}
+
 type Environment = HashMap<Identifier, Vec<SymbolCell>>;
 
 mod modulations;
@@ -101,25 +124,6 @@ pub enum Symbol {
 }
 
 impl Symbol {
-    pub fn canonicalize(&self) -> Self {
-        match self {
-            Symbol::List(v) => v.iter().rfold(Symbol::Nil, |acc, v| {
-                Symbol::Pair(v.clone().into(), acc.into())
-            }),
-            a => a.clone(),
-        }
-    }
-
-    pub fn force(&self, env: &Environment) -> Symbol {
-        match self {
-            Symbol::List(xs) => Symbol::List(xs.iter().map(|x| x.force(env)).collect()),
-            Symbol::Pair(hd, tl) => {
-                Symbol::Pair(hd.deref().force(env).into(), tl.deref().force(env).into())
-            }
-            _ => force_resolve(&self.clone().into(), env).deref().clone(),
-        }
-    }
-
     fn num_args(self: &Symbol) -> i8 {
         match self {
             Symbol::Lit(_) => 0,
@@ -163,12 +167,62 @@ impl Symbol {
     }
 }
 
+trait Canonicalize {
+    fn canonicalize(&self) -> Self;
+}
+
+impl Canonicalize for Symbol {
+    fn canonicalize(&self) -> Self {
+        match self {
+            Symbol::List(v) => v.iter().rfold(Symbol::Nil, |acc, v| {
+                Symbol::Pair(v.clone().into(), acc.into())
+            }),
+            _ => self.clone(),
+        }
+    }
+}
+
+impl Canonicalize for SymbolCell {
+    fn canonicalize(&self) -> Self {
+        let underlying = self.0.deref();
+        match underlying {
+            Symbol::List(_) => underlying.canonicalize().into(),
+            _ => self.clone(),
+        }
+    }
+}
+
+trait Force {
+    fn force(&self, env: &Environment) -> Self;
+}
+
+impl Force for SymbolCell {
+    fn force(&self, env: &Environment) -> Self {
+        let underlying = self.0.deref();
+        match underlying {
+            Symbol::Pair(hd, tl) => Symbol::Pair(hd.force(env), tl.force(env)).into(),
+            Symbol::List(_) => unreachable!(),
+            _ => force_resolve(&self.clone(), env).clone(),
+        }
+    }
+}
+
+impl Force for Symbol {
+    fn force(&self, env: &Environment) -> Self {
+        match self {
+            Symbol::Pair(hd, tl) => Symbol::Pair(hd.force(env), tl.force(env)),
+            Symbol::List(_) => unreachable!(),
+            _ => force_resolve(&self.into(), env).deref().clone(),
+        }
+    }
+}
+
 pub fn eval_instructions<T: Into<SymbolCell> + Clone>(symbols: &[T]) -> Symbol {
     let vars = Environment::new();
 
     let instructions: Vec<SymbolCell> = symbols.iter().map(|sym| sym.clone().into()).collect();
 
-    eval(&instructions, &vars).deref().clone().force(&vars)
+    eval(&instructions, &vars).force(&vars).0.deref().clone()
 }
 
 fn op1<F>(operands: &[SymbolCell], f: F) -> SymbolCell
@@ -196,25 +250,31 @@ impl Into<Symbol> for Number {
     }
 }
 
-fn lit1<T: Into<Symbol>>(
+impl Into<SymbolCell> for Number {
+    fn into(self) -> SymbolCell {
+        Symbol::Lit(self).into()
+    }
+}
+
+fn lit1<T: Into<SymbolCell>>(
     operands: Vec<SymbolCell>,
     env: &Environment,
     f: fn(Number) -> T,
 ) -> SymbolCell {
     op1(&operands, move |symbol| match symbol.force(env) {
-        Symbol::Lit(x) => f(x).into().into(),
+        Symbol::Lit(x) => f(x).into(),
         _ => unreachable!("Non-literal operand: {:?}", symbol),
     })
 }
 
-fn lit2<T: Into<Symbol>>(
+fn lit2<T: Into<SymbolCell>>(
     operands: Vec<SymbolCell>,
     env: &Environment,
     f: fn(Number, Number) -> T,
 ) -> SymbolCell {
     op2(&operands, |op1, op2| {
         match (op1.force(env), op2.force(env)) {
-            (Symbol::Lit(x), Symbol::Lit(y)) => f(x, y).into().into(),
+            (Symbol::Lit(x), Symbol::Lit(y)) => f(x, y).into(),
             _ => unreachable!("Non-literal operands: {:?}", (op1, op2)),
         }
     })
@@ -244,6 +304,7 @@ fn force_resolve(op: &SymbolCell, vars: &Environment) -> SymbolCell {
             Symbol::Var(idx) => {
                 op = eval(&vars[&Identifier::Var(*idx)].clone(), vars);
             }
+
             Symbol::Pair(head, tail) => {
                 return Symbol::Pair(head.force(vars).into(), tail.force(vars).into()).into();
             }
@@ -324,7 +385,7 @@ fn apply(op: SymbolCell, operands: Vec<SymbolCell>, vars: &Environment) -> Symbo
             },
         ),
         Symbol::Mod => op1(&operands, |op| {
-            Symbol::Modulated(modulations::modulate(&op.deref().force(vars))).into()
+            Symbol::Modulated(modulations::modulate(&op.force(vars))).into()
         }),
         Symbol::Dem => op1(&operands, |op| match op.force(vars) {
             Symbol::Modulated(val) => modulations::demodulate(val.clone()).into(),
@@ -333,15 +394,6 @@ fn apply(op: SymbolCell, operands: Vec<SymbolCell>, vars: &Environment) -> Symbo
         // Symbol::Send => {},
         Symbol::Neg => lit1(operands, vars, |x| Symbol::Lit(-x.clone())),
 
-        // Symbol::Ap => match operands.split_first() {
-        //     Some((hd, tl)) => {
-        //         dbg!(&tl);
-        //         let mut tl = tl.iter().map(|x| x.eval(vars).into()).collect();
-        //         eval_thunks(&apply(hd.clone(), vec![], vars), &mut tl, vars)
-        //     }
-        //     None => unreachable!(),
-        // },
-        //
         Symbol::Pwr2 => lit1(operands, vars, |x| i64::pow(2, x as u32)),
 
         Symbol::I => {
@@ -387,21 +439,24 @@ fn apply(op: SymbolCell, operands: Vec<SymbolCell>, vars: &Environment) -> Symbo
         Symbol::Checkerboard => lit2(operands, vars, |x, y| {
             let x_axis = (0..=x).step_by(2);
             let y_axis = (0..=y).step_by(2);
-            Symbol::List(
-                x_axis
-                    .flat_map(|x| {
-                        y_axis.clone().map(move |y| {
-                            Symbol::Pair(Symbol::Lit(x).into(), Symbol::Lit(y).into())
+            SymbolCell(
+                Symbol::List(
+                    x_axis
+                        .flat_map(|x| {
+                            y_axis.clone().map(move |y| {
+                                Symbol::Pair(Symbol::Lit(x).into(), Symbol::Lit(y).into())
+                            })
                         })
-                    })
-                    .collect::<Vec<_>>(),
+                        .collect::<Vec<_>>(),
+                )
+                .into(),
             )
             .canonicalize()
         }),
         // Symbol::MultipleDraw => {},
         Symbol::If0 => {
             if let [literal, x, y] = operands.as_slice() {
-                if literal.deref().force(vars) == Symbol::Lit(0) {
+                if literal.force(vars).deref() == &Symbol::Lit(0) {
                     x.clone()
                 } else {
                     y.clone()
@@ -550,7 +605,7 @@ pub fn interpret(statements: Vec<Statement>) -> Symbol {
     }
 
     let symbol = eval(&statements.last().unwrap().1, &env).force(&env);
-    symbol
+    symbol.deref().clone()
 }
 
 #[cfg(test)]

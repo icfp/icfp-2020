@@ -1,5 +1,6 @@
 use crate::ast::Symbol::*;
 use crate::ast::{eval, eval_instructions, Identifier, Symbol};
+use crate::ast::{Canonicalize, Force};
 use std::ops::Deref;
 
 #[test]
@@ -250,7 +251,7 @@ fn message10() {
     )
     .force(&Default::default());
 
-    assert_eq!(res.clone(), Lit(42));
+    assert_eq!(res.clone(), Lit(42).into());
 }
 
 #[test]
