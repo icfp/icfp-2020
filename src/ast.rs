@@ -33,7 +33,7 @@ impl Deref for SymbolCell {
 
 type Environment = HashMap<Identifier, Vec<SymbolCell>>;
 
-mod modulations;
+pub mod modulations;
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Statement(pub Identifier, pub Vec<Symbol>);
