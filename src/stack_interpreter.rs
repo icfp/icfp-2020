@@ -140,6 +140,7 @@ pub fn run_function(
             stack,
         ),
         Symbol::Lit(_) => function.clone(),
+        Symbol::Pair(_, _) => function.clone(),
         Symbol::Inc => stack_lit1(environment, stack, |x| x + 1),
         Symbol::Dec => stack_lit1(environment, stack, |x| x - 1),
         Symbol::Add => stack_lit2(environment, stack, |x, y| x + y),
@@ -333,7 +334,7 @@ pub fn run_expression(
     loop {
         dbg!(&op);
         dbg!(&stack);
-        if count > 5 {
+        if count > 1000 {
             panic!();
         }
         count += 1;
@@ -342,7 +343,7 @@ pub fn run_expression(
         match sym.deref() {
             // :3 = cons
             Symbol::Closure { .. } => op = sym.clone(),
-            _ if !stack.is_empty() => op = sym.clone(),
+            _ if op != sym && stack.len() >= sym.num_args() as usize => op = sym.clone(),
             _ => return sym,
         }
     }
@@ -603,7 +604,7 @@ mod stack_tests {
         run_test(
             ":1338 = ap ap c ap ap b c ap ap c ap ap b c 1 2 3
              galaxy = :1338",
-            Lit(0),
+            Symbol::C,
         )
     }
 }
