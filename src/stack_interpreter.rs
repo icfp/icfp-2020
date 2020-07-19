@@ -6,16 +6,14 @@ use crate::ast::lower_symbols;
 use super::ast::{Canonicalize, Identifier, Number, Statement, Symbol, SymbolCell};
 
 use crate::ast::modulations;
+use crate::ast::Symbol::ReadyForEval;
 
 type StackEnvironment = HashMap<Identifier, SymbolCell>;
 
-pub fn build_symbol_tree<T>(instructions: &[T]) -> SymbolCell
-where
-    T: Into<SymbolCell> + Clone,
-{
+fn build_symbol_tree(statement: &Statement) -> SymbolCell {
     let mut stack = Vec::<SymbolCell>::new();
 
-    let lowered_symbols: Vec<SymbolCell> = lower_symbols(instructions);
+    let lowered_symbols: Vec<SymbolCell> = lower_symbols(&statement.1);
 
     for inst in lowered_symbols.iter().rev() {
         let val = lower_applies(inst, &mut stack);
@@ -32,15 +30,16 @@ where
     );
 
     let last: SymbolCell = stack.pop().unwrap().into();
-    assert!(
-        match last.deref() {
-            Symbol::ApplyPair(_, _) | Symbol::Var(_) | Symbol::Lit(_) | Symbol::T | Symbol::F =>
-                true,
-            _ => false,
-        },
-        "Unexpected last result: {:?}",
-        last
-    );
+    // assert!(
+    //     match last.deref() {
+    //         Symbol::ApplyPair(_, _) | Symbol::Var(_) | Symbol::Lit(_) | Symbol::T | Symbol::F =>
+    //             true,
+    //         _ => false,
+    //     },
+    //     "Statement({:?}) — Unexpected last result: {:?}",
+    //     statement,
+    //     last
+    // );
 
     last
 }
@@ -50,7 +49,11 @@ fn lower_applies(op: &SymbolCell, operands: &mut Vec<SymbolCell>) -> SymbolCell 
         Symbol::Ap => {
             let fun = operands.pop().unwrap();
             let arg = operands.pop().unwrap();
-            Symbol::ApplyPair(fun, arg).into()
+            Symbol::Closure {
+                captured_arg: arg,
+                body: fun,
+            }
+            .into()
         }
         _ => op.clone(),
     }
@@ -98,8 +101,7 @@ fn stack_lit1<T: Into<Symbol>>(
 ) -> SymbolCell {
     let arg = {
         let pop = stack.pop().unwrap();
-        run_expression(pop, env, stack);
-        stack.pop().unwrap()
+        run_expression(pop, env, stack)
     };
 
     match arg.deref() {
@@ -115,14 +117,12 @@ fn stack_lit2<T: Into<Symbol>>(
 ) -> SymbolCell {
     let first = {
         let pop = stack.pop().unwrap();
-        run_expression(pop, env, stack);
-        stack.pop().unwrap()
+        run_expression(pop, env, stack)
     };
 
     let second = {
         let pop = stack.pop().unwrap();
-        run_expression(pop, env, stack);
-        stack.pop().unwrap()
+        run_expression(pop, env, stack)
     };
 
     match (first.deref(), second.deref()) {
@@ -135,13 +135,19 @@ pub fn run_function(
     function: SymbolCell,
     environment: &StackEnvironment,
     stack: &mut RuntimeStack,
-) -> SymbolCell {
+) {
     fn resolve(symbol: SymbolCell, env: &StackEnvironment, stack: &mut RuntimeStack) -> SymbolCell {
-        run_expression(symbol, env, stack);
-        stack.pop().unwrap()
+        run_expression(symbol, env, stack)
     }
 
-    match function.deref() {
+    let result = match function.deref() {
+        Symbol::Var(id) => run_expression(
+            environment[&Identifier::Var(*id)].clone(),
+            environment,
+            stack,
+        ),
+        Symbol::Lit(_) => function.clone(),
+        Symbol::T | Symbol::F => function.clone(),
         Symbol::Inc => stack_lit1(environment, stack, |x| x + 1),
         Symbol::Dec => stack_lit1(environment, stack, |x| x - 1),
         Symbol::Add => stack_lit2(environment, stack, |x, y| x + y),
@@ -257,13 +263,20 @@ pub fn run_function(
             let y = stack.pop().unwrap();
             let z = stack.pop().unwrap();
 
-            let fn0 = Symbol::ApplyPair(x.clone(), z.clone());
-            let fn1 = Symbol::ApplyPair(y.clone(), z.clone());
-            let s = Symbol::ApplyPair(fn0.into(), fn1.into()).into();
+            let fn0 = Symbol::ReadyForEval(x.clone(), z.clone());
+            let fn1 = Symbol::ReadyForEval(y.clone(), z.clone());
+            let s = Symbol::ReadyForEval(fn0.into(), fn1.into()).into();
             // dbg!(&s);
 
             run_expression(s, environment, stack);
             stack.pop().unwrap()
+        }
+        Symbol::Closure {
+            captured_arg: arg,
+            body: fun,
+        } => {
+            stack.push(arg.clone());
+            fun.clone()
         }
         Symbol::C => {
             // https://en.wikipedia.org/wiki/B,_C,_K,_W_system
@@ -273,10 +286,17 @@ pub fn run_function(
             let y = stack.pop().unwrap();
             let z = stack.pop().unwrap();
 
-            let xz_apply = Symbol::ApplyPair(x.clone(), z.clone());
-            let c = Symbol::ApplyPair(xz_apply.into(), y.clone()).into();
-            run_expression(c, environment, stack);
-            stack.pop().unwrap()
+            let xz_apply = Symbol::Closure {
+                captured_arg: z,
+                body: x,
+            };
+
+            let c = Symbol::Closure {
+                captured_arg: y,
+                body: xz_apply.into(),
+            }
+            .into();
+            c
         }
 
         Symbol::B => {
@@ -288,49 +308,39 @@ pub fn run_function(
             let z = stack.pop().unwrap();
 
             let b =
-                Symbol::ApplyPair(x.clone(), Symbol::ApplyPair(y.clone(), z.clone()).into()).into();
+                Symbol::ReadyForEval(x.clone(), Symbol::ReadyForEval(y.clone(), z.clone()).into())
+                    .into();
 
             run_expression(b, environment, stack);
             stack.pop().unwrap()
         }
         func => unimplemented!("Function not supported: {:?}", func),
-    }
+    };
+
+    stack.push(dbg!(result));
 }
 
 pub fn run_expression(
     symbol: SymbolCell,
     environment: &StackEnvironment,
     stack: &mut RuntimeStack,
-) {
-    match symbol.deref() {
-        Symbol::ApplyPair(fun, arg) => {
-            stack.push(arg.clone());
-
-            let result = match fun.deref() {
-                Symbol::ApplyPair(_, _) | Symbol::Var(_) => {
-                    run_expression(fun.clone(), environment, stack);
-                    stack.pop().unwrap()
-                }
-                _ => run_function(fun.clone(), environment, stack),
-            };
-
-            stack.push(result);
+) -> SymbolCell {
+    let mut op: SymbolCell = symbol;
+    loop {
+        dbg!(&op);
+        dbg!(&stack);
+        run_function(op.clone(), environment, stack);
+        let sym: SymbolCell = stack.pop().unwrap();
+        match sym.deref() {
+            ops if ops.num_args() > 0 => op = sym.clone(),
+            op => return op.into(),
         }
-        Symbol::Var(id) => run_expression(
-            environment[&Identifier::Var(*id)].clone(),
-            environment,
-            stack,
-        ),
-        Symbol::Lit(_) => stack.push(symbol.clone()),
-        Symbol::T | Symbol::F => stack.push(symbol.clone()),
-        op => unreachable!("Operand: {:?}", op),
     }
 }
 
 pub fn run(symbol: SymbolCell, environment: &StackEnvironment) -> SymbolCell {
     let mut stack = RuntimeStack::new();
-    run_expression(symbol, environment, &mut stack);
-    stack.pop().unwrap().clone()
+    run_expression(symbol, environment, &mut stack)
 }
 
 pub fn stack_interpret(statements: Vec<Statement>) -> Symbol {
@@ -338,7 +348,7 @@ pub fn stack_interpret(statements: Vec<Statement>) -> Symbol {
     let last_statement_id = statements.last().unwrap().0.clone();
 
     for statement in statements.clone() {
-        let statements_rvalue = dbg!(build_symbol_tree(&statement.1));
+        let statements_rvalue = dbg!(build_symbol_tree(&statement));
 
         env.insert(statement.0, statements_rvalue);
     }
@@ -512,8 +522,8 @@ mod stack_tests {
     fn var_curry() {
         let lines = parse_as_lines(
             ":1 = ap add 2
-                                                    :2 = 3
-                                                    :3 = ap :1 :2",
+             :2 = 3
+             :3 = ap :1 :2",
         );
         let _symbol = dbg!(stack_interpret(lines));
     }
@@ -576,5 +586,14 @@ mod stack_tests {
 
         let symbol = dbg!(stack_interpret(lines));
         assert_eq!(symbol, Lit(3));
+    }
+
+    #[test]
+    fn galaxy_first_pass() {
+        run_test(
+            ":1338 = ap ap c ap ap b c ap ap c ap ap b c 1 2 3
+             galaxy = :1338",
+            Lit(0),
+        )
     }
 }

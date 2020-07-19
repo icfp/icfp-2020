@@ -93,3 +93,13 @@ fn run_galaxy() {
     //let string = modulate_to_string(&dbg!(symbol));
     //dbg!(string);
 }
+
+#[test]
+fn run_galaxy_stack() {
+    let lines = super::parser::parse_as_lines(include_str!("../data/galaxy.txt"));
+
+    let symbol = super::stack_interpreter::stack_interpret(lines);
+
+    let string = super::ast::modulate_to_string(&dbg!(symbol));
+    dbg!(string);
+}

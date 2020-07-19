@@ -2,9 +2,11 @@
 
 use std::collections::HashMap;
 use std::ops::Deref;
+
 use std::rc::Rc;
 
 pub use modulations::{demodulate_string, modulate_to_string};
+use std::fmt::{Debug, Formatter, Result};
 
 pub type Number = i64;
 
@@ -31,6 +33,88 @@ impl Deref for SymbolCell {
     }
 }
 
+impl Debug for Symbol {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        fn limited(symbol: &Symbol, f: &mut Formatter<'_>, depth: i8) -> Result {
+            if depth <= 0 {
+                return write!(f, "..more..");
+            }
+
+            match symbol {
+                Symbol::T => write!(f, "T"),
+                Symbol::Lit(v) => write!(f, "{}", v),
+                Symbol::Eq => write!(f, "Eq"),
+                Symbol::Inc => write!(f, "Inc"),
+                Symbol::Dec => write!(f, "Dec"),
+                Symbol::Add => write!(f, "Add"),
+                Symbol::Var(id) => write!(f, "Var({})", id),
+                Symbol::Mul => write!(f, "Mul"),
+                Symbol::Div => write!(f, "Div"),
+                Symbol::F => write!(f, "F"),
+                Symbol::Lt => write!(f, "Lt"),
+                Symbol::Mod => write!(f, "Mod"),
+                Symbol::Dem => write!(f, "Dem"),
+                Symbol::Send => write!(f, "Send"),
+                Symbol::Neg => write!(f, "Neg"),
+                Symbol::Ap => write!(f, "Ap"),
+                Symbol::S => write!(f, "S"),
+                Symbol::C => write!(f, "C"),
+                Symbol::B => write!(f, "B"),
+                Symbol::Pwr2 => write!(f, "Pwr2"),
+                Symbol::I => write!(f, "I"),
+                Symbol::Cons => write!(f, "Cons"),
+                Symbol::Car => write!(f, "Car"),
+                Symbol::Cdr => write!(f, "Cdr"),
+                Symbol::Nil => write!(f, "Nil"),
+                Symbol::IsNil => write!(f, "IsNil"),
+                Symbol::Draw => write!(f, "Draw"),
+                Symbol::Checkerboard => write!(f, "Checkerboard"),
+                Symbol::MultipleDraw => write!(f, "MultipleDraw"),
+                Symbol::If0 => write!(f, "If0"),
+                Symbol::Interact => write!(f, "Interact"),
+                Symbol::StatelessDraw => write!(f, "StatelessDraw"),
+                m @ Symbol::Modulated(_) => write!(f, "Modulated({})", modulate_to_string(m)),
+                Symbol::List(items) => {
+                    write!(f, "[")?;
+                    for item in items.iter().take(10) {
+                        limited(item, f, depth - 1)?;
+                        write!(f, ", ")?;
+                    }
+                    if items.len() > 10 {
+                        write!(f, "...")?;
+                    }
+                    write!(f, "]")
+                }
+                Symbol::PartFn(_op, _args, _remaining) => write!(f, "PartFn(...)"),
+                Symbol::Pair(fst, second) => {
+                    write!(f, "Pair(")?;
+
+                    limited(fst, f, depth - 1)?;
+                    write!(f, ", ")?;
+                    limited(second, f, depth - 1)?;
+                    write!(f, ")")
+                }
+                Symbol::ReadyForEval(fst, second) => {
+                    write!(f, "ApplyPair(")?;
+                    limited(fst, f, depth - 1)?;
+                    write!(f, ", ")?;
+                    limited(second, f, depth - 1)?;
+                    write!(f, ")")
+                }
+                Symbol::Closure { captured_arg, body } => {
+                    write!(f, "Closure(")?;
+                    limited(captured_arg, f, depth - 1)?;
+                    write!(f, ", ")?;
+                    limited(body, f, depth - 1)?;
+                    write!(f, ")")
+                }
+            }
+        }
+
+        limited(self, f, 10)
+    }
+}
+
 type Environment = HashMap<Identifier, Vec<SymbolCell>>;
 
 pub mod modulations;
@@ -44,7 +128,7 @@ pub enum Identifier {
     Var(usize),
 }
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
 pub enum Symbol {
     Lit(Number),
     // 1-3
@@ -119,12 +203,16 @@ pub enum Symbol {
     StatelessDraw,
     PartFn(SymbolCell, Vec<SymbolCell>, i8),
     Pair(SymbolCell, SymbolCell),
-    ApplyPair(SymbolCell, SymbolCell),
+    ReadyForEval(SymbolCell, SymbolCell),
+    Closure {
+        captured_arg: SymbolCell,
+        body: SymbolCell,
+    },
     Modulated(modulations::Modulated),
 }
 
 impl Symbol {
-    fn num_args(self: &Symbol) -> i8 {
+    pub fn num_args(self: &Symbol) -> i8 {
         match self {
             Symbol::Lit(_) => 0,
             Symbol::Eq => 2,
@@ -162,7 +250,8 @@ impl Symbol {
             Symbol::PartFn(_, _, i) => *i,
             Symbol::Pair(_, _) => 0,
             Symbol::Modulated(_) => 0,
-            Symbol::ApplyPair(_, _) => unreachable!(),
+            Symbol::ReadyForEval(_, _) => 0,
+            Symbol::Closure { .. } => 1,
         }
     }
 }
