@@ -137,17 +137,13 @@ pub fn run_function(
         Symbol::Add => stack_lit2(environment, stack, |x, y| x + y),
         Symbol::Mul => stack_lit2(environment, stack, |x, y| x * y),
         Symbol::Div => stack_lit2(environment, stack, |x, y| x / y),
-        Symbol::If0 => {
-            let test = stack.pop().unwrap();
-            let first = stack.pop().unwrap();
-            let second = stack.pop().unwrap();
-            if test.deref() == &Symbol::Lit(0) {
-                run_expression(first, environment, stack);
+        Symbol::If0 => op3(environment, stack, |env, stack, test, first, second| {
+            if resolve(test, env, stack).deref() == &Symbol::Lit(0) {
+                resolve(first, env, stack)
             } else {
-                run_expression(second, environment, stack);
+                resolve(second, env, stack)
             }
-            stack.pop().unwrap()
-        }
+        }),
         Symbol::Eq => {
             let first = {
                 let pop = stack.pop().unwrap();
@@ -198,30 +194,23 @@ pub fn run_function(
         // Symbol::Send => {},
         Symbol::Neg => stack_lit1(environment, stack, |x| Symbol::Lit(-x.clone())),
 
-        // Symbol::Ap => match operands.split_first() {
-        //     Some((hd, tl)) => {
-        //         dbg!(&tl);
-        //         let mut tl = tl.iter().map(|x| x.eval(vars).into()).collect();
-        //         eval_thunks(&apply(hd.clone(), vec![], vars), &mut tl, vars)
-        //     }
-        //     None => unreachable!(),
-        // },
-        //
         Symbol::Pwr2 => stack_lit1(environment, stack, |x| i64::pow(2, x as u32)),
-        Symbol::I => op1(environment, stack, |env, stack, op| op.clone()),
+        Symbol::I => op1(environment, stack, |_, _, op| op.clone()),
 
-        Symbol::Cons => op2(environment, stack, |env, stack, op1, op2| {
+        Symbol::Cons => op2(environment, stack, |_, _, op1, op2| {
             Symbol::Pair(op1.clone(), op2.clone()).into()
         }),
         Symbol::Car => op1(environment, stack, |env, stack, op| {
             match resolve(op, env, stack).deref() {
+                Symbol::Pair(hd, _) => resolve(hd.clone(), env, stack),
                 Symbol::List(_) => unreachable!("List should have been lowered"),
                 op => unreachable!("Car with invalid operands: {:?}", op),
             }
         }),
         Symbol::Cdr => op1(environment, stack, |env, stack, op| {
             match resolve(op, env, stack).deref() {
-                Symbol::Pair(_, v2) => v2.clone(),
+                // this one should be lazy and not resolve, i think...
+                Symbol::Pair(_, tail) => tail.clone(),
                 Symbol::List(_) => unreachable!("List should have been lowered"),
                 op => unreachable!("Cdr with invalid operands: {:?}", op),
             }
@@ -356,6 +345,13 @@ mod stack_tests {
 
     use super::stack_interpret;
     use super::Symbol::*;
+    use crate::ast::Symbol;
+
+    fn run_test(program: &str, expectation: Symbol) {
+        let lines = parse_as_lines(program);
+        let symbol = dbg!(stack_interpret(lines));
+        assert_eq!(symbol, expectation);
+    }
 
     #[test]
     fn inc() {
@@ -366,7 +362,111 @@ mod stack_tests {
     #[test]
     fn add() {
         let lines = parse_as_lines(":1 = ap ap add 2 1");
-        let _symbol = dbg!(stack_interpret(lines));
+        let symbol = dbg!(stack_interpret(lines));
+        assert_eq!(symbol, Lit(3))
+    }
+
+    #[test]
+    fn mul() {
+        // https://message-from-space.readthedocs.io/en/latest/message9.html
+
+        /*
+        ap ap mul 4 2   =   8
+        ap ap mul 3 4   =   12
+        ap ap mul 3 -2   =   -6
+        ap ap mul x0 x1   =   ap ap mul x1 x0
+        ap ap mul x0 0   =   0
+        ap ap mul x0 1   =   x0
+        */
+        run_test(":1 = ap ap mul 4 2", Lit(8));
+        run_test(":1 = ap ap mul 3 4", Lit(12));
+        run_test(":1 = ap ap mul 3 -2", Lit(-6));
+        run_test(":1 = ap ap mul -2 3", Lit(-6));
+        run_test(":1 = ap ap mul 4 0", Lit(0));
+        run_test(":1 = ap ap mul 4 1", Lit(4));
+    }
+    #[test]
+    fn less_than() {
+        // message 12
+        /*
+        ap ap lt 0 -1   =   f
+        ap ap lt 0 0   =   f
+        ap ap lt 0 1   =   t
+        ap ap lt 0 2   =   t
+        ...
+        ap ap lt 1 0   =   f
+        ap ap lt 1 1   =   f
+        ap ap lt 1 2   =   t
+        ap ap lt 1 3   =   t
+        ...
+        ap ap lt 2 1   =   f
+        ap ap lt 2 2   =   f
+        ap ap lt 2 3   =   t
+        ap ap lt 2 4   =   t
+        ...
+        ap ap lt 19 20   =   t
+        ap ap lt 20 20   =   f
+        ap ap lt 21 20   =   f
+        ...
+        ap ap lt -19 -20   =   f
+        ap ap lt -20 -20   =   f
+        ap ap lt -21 -20   =   t
+        */
+        run_test(":1 = ap ap lt 0 -1", F);
+        run_test(":1 = ap ap lt 0 0", F);
+        run_test(":1 = ap ap lt 0 1", T);
+    }
+
+    #[test]
+    fn div() {
+        // https://message-from-space.readthedocs.io/en/latest/message10.html
+
+        /*
+        ap ap div 4 2   =   2
+        ap ap div 4 3   =   1
+        ap ap div 4 4   =   1
+        ap ap div 4 5   =   0
+        ap ap div 5 2   =   2
+        ap ap div 6 -2   =   -3
+        ap ap div 5 -3   =   -1
+        ap ap div -5 3   =   -1
+        ap ap div -5 -3   =   1
+        ap ap div x0 1   =   x0
+        */
+
+        run_test(":1 = ap ap div 4 2", Lit(2));
+        run_test(":1 = ap ap div 4 3", Lit(1));
+        run_test(":1 = ap ap div 4 5", Lit(0));
+        run_test(":1 = ap ap div 5 2", Lit(2));
+        run_test(":1 = ap ap div 6 -2", Lit(-3));
+        run_test(":1 = ap ap div 5 -3", Lit(-1));
+        run_test(":1 = ap ap div -5 3", Lit(-1));
+        run_test(":1 = ap ap div -5 -3", Lit(1));
+    }
+
+    #[test]
+    fn equality() {
+        run_test(":1 = ap ap eq 1 1", T);
+    }
+
+    #[test]
+    fn inequality() {
+        run_test(":1 = ap ap eq 1 2", F);
+    }
+
+    #[test]
+    fn cons() {
+        run_test(":1 = ap ap cons 1 2", Pair(Lit(1).into(), Lit(2).into()));
+    }
+
+    #[test]
+    fn car() {
+        run_test(":1 = ap car ap ap cons 1 2", Lit(1));
+    }
+
+    #[test]
+    fn cdr() {
+        run_test(":1 = ap cdr ap ap cons 1 2", Lit(2));
     }
 
     #[test]

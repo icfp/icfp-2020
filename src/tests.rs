@@ -88,7 +88,7 @@ fn run_start() {
 #[test]
 #[ignore]
 fn run_galaxy() {
-    let symbol = super::run(include_str!("../data/galaxy.txt"));
+    let _symbol = super::run(include_str!("../data/galaxy.txt"));
 
     //let string = modulate_to_string(&dbg!(symbol));
     //dbg!(string);
