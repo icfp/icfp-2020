@@ -250,6 +250,10 @@ fn force_resolve(op: &SymbolCell, vars: &Environment) -> SymbolCell {
                 op = vars[&Identifier::Var(*idx)].clone();
             }
 
+            Symbol::Pair(head, tail) => {
+                return Symbol::Pair(head.force(vars).into(), tail.force(vars).into()).into();
+            }
+
             _ => return op.clone(),
         }
 
@@ -420,12 +424,6 @@ fn apply(op: SymbolCell, operands: Vec<SymbolCell>, vars: &Environment) -> Symbo
         }
         // Symbol::Interact => {},
         // Symbol::StatelessDraw => {},
-        Symbol::PartFn(_, _, 0) => {
-            unreachable!("PartFn being applied with no remaining");
-            // force_resolve(&op, vars)
-            // :1234 = PartFn(Ap, vec![], 0)
-            // PartFn(Ap, vec![:1234, x], 0)
-        }
         Symbol::PartFn(_, args, remaining) => {
             match args.split_first() {
                 Some((hd, tl)) => {
@@ -436,7 +434,7 @@ fn apply(op: SymbolCell, operands: Vec<SymbolCell>, vars: &Environment) -> Symbo
                     dbg!(&operands);
                     dbg!(args_start);
                     args.extend_from_slice(&operands[args_start..]);
-                    let res = apply(hd.clone(), args, vars);
+                    let res = apply(hd.clone(), dbg!(args), vars);
                     dbg!(&res);
                     res
                 }
@@ -483,13 +481,16 @@ fn apply(op: SymbolCell, operands: Vec<SymbolCell>, vars: &Environment) -> Symbo
             // C x y z = x z y
 
             if let [x, y, z] = operands.as_slice() {
+                let xz_apply = Symbol::PartFn(
+                    Symbol::Ap.into(),
+                    vec![x.clone(), z.clone()],
+                    x.num_args() - 1,
+                );
+
                 Symbol::PartFn(
                     Symbol::Ap.into(),
-                    vec![
-                        Symbol::PartFn(Symbol::Ap.into(), vec![x.clone(), z.clone()], 0).into(),
-                        y.clone(),
-                    ],
-                    0,
+                    vec![xz_apply.into(), y.clone()],
+                    x.num_args() - 2,
                 )
                 .into()
             } else {
