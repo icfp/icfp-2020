@@ -125,6 +125,47 @@ impl Symbol {
             _ => self.clone(),
         }
     }
+
+    fn num_args(self: &Symbol) -> i8 {
+        match self {
+            Symbol::Lit(_) => 0,
+            Symbol::Eq => 2,
+            Symbol::Inc => 1,
+            Symbol::Dec => 1,
+            Symbol::Add => 2,
+            Symbol::Var(_) => 0,
+            Symbol::Mul => 2,
+            Symbol::Div => 2,
+            Symbol::T => 2,
+            Symbol::F => 2,
+            Symbol::Lt => 2,
+            Symbol::Mod => 1,
+            Symbol::Dem => 1,
+            Symbol::Send => 1,
+            Symbol::Neg => 1,
+            Symbol::Ap => 2,
+            Symbol::S => 3,
+            Symbol::C => 3,
+            Symbol::B => 3,
+            Symbol::Pwr2 => 1,
+            Symbol::I => 1,
+            Symbol::Cons => 2,
+            Symbol::Car => 1,
+            Symbol::Cdr => 1,
+            Symbol::Nil => 0,
+            Symbol::IsNil => 1,
+            Symbol::List(_) => 0,
+            Symbol::Draw => 1,
+            Symbol::Checkerboard => 2,
+            Symbol::MultipleDraw => 1,
+            Symbol::If0 => 3,
+            Symbol::Interact => 3,
+            Symbol::StatelessDraw => 3,
+            Symbol::PartFn(_, _, i) => *i,
+            Symbol::Pair(_, _) => 0,
+            Symbol::Modulated(_) => 0,
+        }
+    }
 }
 
 pub fn eval_instructions<T: Into<SymbolCell> + Clone>(symbols: &[T]) -> Symbol {
@@ -135,52 +176,12 @@ pub fn eval_instructions<T: Into<SymbolCell> + Clone>(symbols: &[T]) -> Symbol {
     eval(&instructions, &vars).deref().clone().eval(&vars)
 }
 
-fn num_args(symbol: &Symbol) -> i8 {
-    match symbol {
-        Symbol::Lit(_) => 0,
-        Symbol::Eq => 2,
-        Symbol::Inc => 1,
-        Symbol::Dec => 1,
-        Symbol::Add => 2,
-        Symbol::Var(_) => 0,
-        Symbol::Mul => 2,
-        Symbol::Div => 2,
-        Symbol::T => 2,
-        Symbol::F => 2,
-        Symbol::Lt => 2,
-        Symbol::Mod => 1,
-        Symbol::Dem => 1,
-        Symbol::Send => 1,
-        Symbol::Neg => 1,
-        Symbol::Ap => 2,
-        Symbol::S => 3,
-        Symbol::C => 3,
-        Symbol::B => 3,
-        Symbol::Pwr2 => 1,
-        Symbol::I => 1,
-        Symbol::Cons => 2,
-        Symbol::Car => 1,
-        Symbol::Cdr => 1,
-        Symbol::Nil => 0,
-        Symbol::IsNil => 1,
-        Symbol::List(_) => 0,
-        Symbol::Draw => 1,
-        Symbol::Checkerboard => 2,
-        Symbol::MultipleDraw => 1,
-        Symbol::If0 => 3,
-        Symbol::Interact => 3,
-        Symbol::StatelessDraw => 3,
-        Symbol::PartFn(_, _, i) => *i,
-        Symbol::Pair(_, _) => 0,
-        Symbol::Modulated(_) => 0,
-    }
-}
-
 fn op1<F>(operands: &[SymbolCell], f: F) -> SymbolCell
 where
     F: FnOnce(&Symbol) -> SymbolCell,
 {
-    let op = operands[0].deref();
+    let len = operands.len() - 1;
+    let op = operands[len].deref();
     f(op)
 }
 
@@ -188,19 +189,21 @@ fn op2<F>(operands: &[SymbolCell], f: F) -> SymbolCell
 where
     F: FnOnce(&Symbol, &Symbol) -> SymbolCell,
 {
-    let op = operands[0].deref();
-    let op2 = operands[1].deref();
-    f(op, op2)
+    let len = operands.len() - 1;
+    let op1 = operands[len - 0].deref();
+    let op2 = operands[len - 1].deref();
+    f(op1, op2)
 }
 
 fn op3<F>(operands: &[SymbolCell], f: F) -> SymbolCell
 where
     F: FnOnce(&Symbol, &Symbol, &Symbol) -> SymbolCell,
 {
-    let op = operands[0].deref();
-    let op2 = operands[1].deref();
-    let op3 = operands[2].deref();
-    f(op, op2, op3)
+    let len = operands.len() - 1;
+    let op1 = operands[len - 0].deref();
+    let op2 = operands[len - 1].deref();
+    let op3 = operands[len - 2].deref();
+    f(op1, op2, op3)
 }
 
 impl Into<Symbol> for Number {
@@ -235,80 +238,10 @@ fn eval_thunks(op: &SymbolCell, operands: &mut Vec<SymbolCell>, vars: &Environme
     dbg!(&op);
 
     match op.deref() {
-        Symbol::S => {
-            // https://en.wikipedia.org/wiki/SKI_combinator_calculus
-            // Sxyz = xz(yz)
-
-            if let [x, y, z] = &operands[0..3] {
-                let s = Symbol::PartFn(
-                    Symbol::Ap.into(),
-                    vec![
-                        Symbol::PartFn(
-                            Symbol::Ap.into(),
-                            vec![x.clone(), z.clone()],
-                            num_args(x) - 1,
-                        )
-                        .into(),
-                        Symbol::PartFn(
-                            Symbol::Ap.into(),
-                            vec![y.clone(), z.clone()],
-                            num_args(y) - 1,
-                        )
-                        .into(),
-                    ],
-                    0,
-                )
-                .into();
-                dbg!(&s);
-
-                s
-            } else {
-                unreachable!("{:?}", operands)
-            }
-        }
-
-        Symbol::C => {
-            // https://en.wikipedia.org/wiki/B,_C,_K,_W_system
-            // C x y z = x z y
-
-            if let [x, y, z] = operands.as_slice() {
-                Symbol::PartFn(
-                    Symbol::Ap.into(),
-                    vec![
-                        Symbol::PartFn(Symbol::Ap.into(), vec![x.clone(), z.clone()], 0).into(),
-                        y.clone(),
-                    ],
-                    0,
-                )
-                .into()
-            } else {
-                unreachable!()
-            }
-        }
-
-        Symbol::B => {
-            // https://en.wikipedia.org/wiki/B,_C,_K,_W_system
-            // B x y z = x (y z)
-
-            if let [x, y, z] = operands.as_slice() {
-                Symbol::PartFn(
-                    Symbol::Ap.into(),
-                    vec![
-                        x.clone(),
-                        Symbol::PartFn(Symbol::Ap.into(), vec![y.clone(), z.clone()], 0).into(),
-                    ],
-                    0,
-                )
-                .into()
-            } else {
-                unreachable!()
-            }
-        }
-
         Symbol::PartFn(op, args, 0) => match args.split_first() {
             Some((hd, tl)) => {
                 assert_eq!(op.deref(), &Symbol::Ap);
-                eval_thunks(&hd, &mut tl.to_vec(), vars)
+                apply(hd.clone(), tl.to_vec(), vars)
             }
             _ => unreachable!(),
         },
@@ -321,8 +254,10 @@ fn eval_thunks(op: &SymbolCell, operands: &mut Vec<SymbolCell>, vars: &Environme
         }
 
         Symbol::Ap => {
-            let arg = eval_thunks(&operands.pop().unwrap(), &mut vec![], vars);
-            apply(arg, operands.to_vec(), vars)
+            let fun = operands.pop().unwrap();
+            let arg = operands.pop().unwrap();
+            let remaining = fun.num_args() - 1;
+            Symbol::PartFn(op.clone(), vec![fun, arg], remaining).into()
         }
 
         _ => op.clone(),
@@ -476,6 +411,76 @@ fn apply(op: SymbolCell, operands: Vec<SymbolCell>, vars: &Environment) -> Symbo
         //     eval_thunks(&op, &mut args, vars)
         // }
         //
+        Symbol::S => {
+            // https://en.wikipedia.org/wiki/SKI_combinator_calculus
+            // Sxyz = xz(yz)
+
+            match operands.as_slice() {
+                [x, y, z] => {
+                    let fn0 = Symbol::PartFn(
+                        Symbol::Ap.into(),
+                        vec![x.clone(), z.clone()],
+                        x.num_args() - 1,
+                    );
+
+                    let fn1 = Symbol::PartFn(
+                        Symbol::Ap.into(),
+                        vec![y.clone(), z.clone()],
+                        y.num_args() - 1,
+                    );
+
+                    let remaining = fn0.num_args() - 1 + fn1.num_args();
+
+                    let s =
+                        Symbol::PartFn(Symbol::Ap.into(), vec![fn0.into(), fn1.into()], remaining)
+                            .into();
+                    dbg!(&s);
+
+                    s
+                }
+
+                _ => unreachable!(),
+            }
+        }
+
+        Symbol::C => {
+            // https://en.wikipedia.org/wiki/B,_C,_K,_W_system
+            // C x y z = x z y
+
+            if let [x, y, z] = operands.as_slice() {
+                Symbol::PartFn(
+                    Symbol::Ap.into(),
+                    vec![
+                        Symbol::PartFn(Symbol::Ap.into(), vec![x.clone(), z.clone()], 0).into(),
+                        y.clone(),
+                    ],
+                    0,
+                )
+                .into()
+            } else {
+                unreachable!()
+            }
+        }
+
+        Symbol::B => {
+            // https://en.wikipedia.org/wiki/B,_C,_K,_W_system
+            // B x y z = x (y z)
+
+            if let [x, y, z] = operands.as_slice() {
+                Symbol::PartFn(
+                    Symbol::Ap.into(),
+                    vec![
+                        x.clone(),
+                        Symbol::PartFn(Symbol::Ap.into(), vec![y.clone(), z.clone()], 0).into(),
+                    ],
+                    0,
+                )
+                .into()
+            } else {
+                unreachable!()
+            }
+        }
+
         _ => unimplemented!("{0:?} is not implemented", op),
     }
 }
@@ -529,9 +534,7 @@ where
     let lowered_symbols: Vec<SymbolCell> = lower_symbols(instructions);
 
     for inst in lowered_symbols.iter().rev() {
-        stack.reverse();
         let val = eval_thunks(inst, &mut stack, vars);
-        stack.reverse();
         stack.push(val);
     }
 
