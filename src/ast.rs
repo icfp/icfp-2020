@@ -109,23 +109,13 @@ impl Symbol {
         }
     }
 
-    fn eval(&self, env: &Environment) -> Symbol {
-        dbg!(&self);
-        let res = eval_thunks(&SymbolCell::new(self.clone()), &mut vec![], env)
-            .deref()
-            .clone();
-        dbg!(&res);
-        res
-    }
-
     pub fn force(&self, env: &Environment) -> Symbol {
         match self {
             Symbol::List(xs) => Symbol::List(xs.iter().map(|x| x.force(env)).collect()),
-            pfn @ Symbol::PartFn(_, _, _) => pfn.eval(env),
             Symbol::Pair(hd, tl) => {
                 Symbol::Pair(hd.deref().force(env).into(), tl.deref().force(env).into())
             }
-            _ => self.clone(),
+            _ => force_resolve(&self.clone().into(), env).deref().clone(),
         }
     }
 
@@ -176,7 +166,7 @@ pub fn eval_instructions<T: Into<SymbolCell> + Clone>(symbols: &[T]) -> Symbol {
 
     let instructions: Vec<SymbolCell> = symbols.iter().map(|sym| sym.clone().into()).collect();
 
-    eval(&instructions, &vars).deref().clone().eval(&vars)
+    eval(&instructions, &vars).deref().clone().force(&vars)
 }
 
 fn op1<F>(operands: &[SymbolCell], f: F) -> SymbolCell
@@ -220,7 +210,7 @@ fn lit1<T: Into<Symbol>>(
     env: &Environment,
     f: fn(Number) -> T,
 ) -> SymbolCell {
-    op1(&operands, move |symbol| match symbol.eval(env) {
+    op1(&operands, move |symbol| match symbol.force(env) {
         Symbol::Lit(x) => f(x).into().into(),
         _ => unreachable!("Non-literal operand: {:?}", symbol),
     })
@@ -231,16 +221,16 @@ fn lit2<T: Into<Symbol>>(
     env: &Environment,
     f: fn(Number, Number) -> T,
 ) -> SymbolCell {
-    op2(&operands, |op1, op2| match (op1.eval(env), op2.eval(env)) {
-        (Symbol::Lit(x), Symbol::Lit(y)) => f(x, y).into().into(),
-        _ => unreachable!("Non-literal operands: {:?}", (op1, op2)),
+    op2(&operands, |op1, op2| {
+        match (op1.force(env), op2.force(env)) {
+            (Symbol::Lit(x), Symbol::Lit(y)) => f(x, y).into().into(),
+            _ => unreachable!("Non-literal operands: {:?}", (op1, op2)),
+        }
     })
 }
 
-fn eval_thunks(op: &SymbolCell, operands: &mut Vec<SymbolCell>, vars: &Environment) -> SymbolCell {
-    let mut empty = vec![];
+fn force_resolve(op: &SymbolCell, vars: &Environment) -> SymbolCell {
     let mut op = op.clone();
-    let mut operands = operands;
     let mut stop = false;
 
     loop {
@@ -255,20 +245,6 @@ fn eval_thunks(op: &SymbolCell, operands: &mut Vec<SymbolCell>, vars: &Environme
                 _ => unreachable!(),
             },
 
-            Symbol::PartFn(_, args, remaining) if !stop => {
-                assert!(*remaining > 0);
-                let mut vec = args.clone();
-                vec.push(operands.pop().unwrap());
-                op = Symbol::PartFn(op.clone(), vec, remaining - 1).into();
-            }
-
-            Symbol::Ap if !stop => {
-                let fun = operands.pop().unwrap();
-                let arg = operands.pop().unwrap();
-                let remaining = fun.num_args() - 1;
-                op = Symbol::PartFn(op.clone(), vec![fun, arg], remaining).into()
-            }
-
             Symbol::Var(idx) => {
                 op = vars[&Identifier::Var(*idx)].clone();
             }
@@ -276,8 +252,29 @@ fn eval_thunks(op: &SymbolCell, operands: &mut Vec<SymbolCell>, vars: &Environme
             _ => return op.clone(),
         }
 
-        operands = &mut empty;
         stop = true;
+    }
+}
+
+fn eval_thunks(op: &SymbolCell, operands: &mut Vec<SymbolCell>, vars: &Environment) -> SymbolCell {
+    match op.deref() {
+        Symbol::PartFn(_, args, remaining) => {
+            assert!(*remaining > 0);
+            let mut vec = args.clone();
+            vec.push(operands.pop().unwrap());
+            Symbol::PartFn(op.clone(), vec, remaining - 1).into()
+        }
+
+        Symbol::Ap => {
+            let fun = operands.pop().unwrap();
+            let arg = operands.pop().unwrap();
+            let remaining = fun.num_args() - 1;
+            Symbol::PartFn(op.clone(), vec![fun, arg], remaining).into()
+        }
+
+        Symbol::Var(idx) => vars[&Identifier::Var(*idx)].clone(),
+
+        _ => op.clone(),
     }
 }
 
@@ -291,7 +288,7 @@ fn apply(op: SymbolCell, operands: Vec<SymbolCell>, vars: &Environment) -> Symbo
         Symbol::Lit(_) => op,
         Symbol::Eq => {
             if let [lhs, rhs] = operands.as_slice() {
-                if lhs.eval(vars) == rhs.eval(vars) {
+                if lhs.force(vars) == rhs.force(vars) {
                     Symbol::T.into()
                 } else {
                     Symbol::F.into()
@@ -338,9 +335,9 @@ fn apply(op: SymbolCell, operands: Vec<SymbolCell>, vars: &Environment) -> Symbo
             },
         ),
         Symbol::Mod => op1(&operands, |op| {
-            Symbol::Modulated(modulations::modulate(&op.deref().eval(vars))).into()
+            Symbol::Modulated(modulations::modulate(&op.deref().force(vars))).into()
         }),
-        Symbol::Dem => op1(&operands, |op| match op.eval(vars) {
+        Symbol::Dem => op1(&operands, |op| match op.force(vars) {
             Symbol::Modulated(val) => modulations::demodulate(val.clone()).into(),
             _ => unreachable!("Dem with invalid operands"),
         }),
@@ -373,13 +370,13 @@ fn apply(op: SymbolCell, operands: Vec<SymbolCell>, vars: &Environment) -> Symbo
                 unreachable!()
             }
         }
-        Symbol::Car => op1(&operands, |op| match op.eval(vars) {
+        Symbol::Car => op1(&operands, |op| match op.force(vars) {
             Symbol::Pair(v1, _) => v1.clone(),
             Symbol::List(_) => unreachable!("List should have been lowered"),
             op => unreachable!("Car with invalid operands: {:?}", op),
         }),
 
-        Symbol::Cdr => op1(&operands, |op| match op.eval(vars) {
+        Symbol::Cdr => op1(&operands, |op| match op.force(vars) {
             Symbol::Pair(_, v2) => v2.clone(),
             Symbol::List(_) => unreachable!("List should have been lowered"),
             op => unreachable!("Cdr with invalid operands: {:?}", op),
@@ -388,7 +385,7 @@ fn apply(op: SymbolCell, operands: Vec<SymbolCell>, vars: &Environment) -> Symbo
         Symbol::Nil => Symbol::Nil.into(),
 
         Symbol::IsNil => op1(&operands, |op| {
-            if op.eval(vars) == Symbol::Nil {
+            if op.force(vars) == Symbol::Nil {
                 Symbol::T.into()
             } else {
                 Symbol::F.into()
@@ -415,7 +412,7 @@ fn apply(op: SymbolCell, operands: Vec<SymbolCell>, vars: &Environment) -> Symbo
         // Symbol::MultipleDraw => {},
         Symbol::If0 => {
             if let [literal, x, y] = operands.as_slice() {
-                if literal.deref().eval(vars) == Symbol::Lit(0) {
+                if literal.deref().force(vars) == Symbol::Lit(0) {
                     x.clone()
                 } else {
                     y.clone()

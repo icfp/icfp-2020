@@ -449,7 +449,7 @@ fn message24() {
     assert_eq!(res, Add);
 
     let res = eval_instructions(&[Ap, I, Ap, Add, Lit(1)]);
-    assert_eq!(res, PartFn(Add.into(), vec![Lit(1).into()], 1));
+    assert_eq!(res, PartFn(Ap.into(), vec![Add.into(), Lit(1).into()], 1));
 }
 
 #[test]
