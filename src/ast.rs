@@ -110,9 +110,12 @@ impl Symbol {
     }
 
     fn eval(&self, env: &Environment) -> Symbol {
-        eval_thunks(&SymbolCell::new(self.clone()), &mut vec![], env)
+        dbg!(&self);
+        let res = eval_thunks(&SymbolCell::new(self.clone()), &mut vec![], env)
             .deref()
-            .clone()
+            .clone();
+        dbg!(&res);
+        res
     }
 
     pub fn force(&self, env: &Environment) -> Symbol {
@@ -190,8 +193,8 @@ where
     F: FnOnce(&Symbol, &Symbol) -> SymbolCell,
 {
     let len = operands.len() - 1;
-    let op1 = operands[len - 0].deref();
-    let op2 = operands[len - 1].deref();
+    let op1 = operands[len - 1].deref();
+    let op2 = operands[len - 0].deref();
     f(op1, op2)
 }
 
@@ -235,37 +238,54 @@ fn lit2<T: Into<Symbol>>(
 }
 
 fn eval_thunks(op: &SymbolCell, operands: &mut Vec<SymbolCell>, vars: &Environment) -> SymbolCell {
-    dbg!(&op);
+    let mut empty = vec![];
+    let mut op = op.clone();
+    let mut operands = operands;
+    let mut stop = false;
 
-    match op.deref() {
-        Symbol::PartFn(op, args, 0) => match args.split_first() {
-            Some((hd, tl)) => {
-                assert_eq!(op.deref(), &Symbol::Ap);
-                apply(hd.clone(), tl.to_vec(), vars)
+    loop {
+        match op.deref() {
+            Symbol::PartFn(_, args, 0) => match args.split_first() {
+                Some((hd, tl)) => {
+                    dbg!(&args);
+                    let res = apply(hd.clone(), tl.to_vec(), vars);
+                    dbg!(&res);
+                    op = res;
+                }
+                _ => unreachable!(),
+            },
+
+            Symbol::PartFn(_, args, remaining) if !stop => {
+                assert!(*remaining > 0);
+                let mut vec = args.clone();
+                vec.push(operands.pop().unwrap());
+                op = Symbol::PartFn(op.clone(), vec, remaining - 1).into();
             }
-            _ => unreachable!(),
-        },
 
-        Symbol::PartFn(op, args, remaining) => {
-            assert!(*remaining > 0);
-            let mut vec = args.clone();
-            vec.push(operands.pop().unwrap());
-            Symbol::PartFn(op.clone(), vec, remaining - 1).into()
+            Symbol::Ap if !stop => {
+                let fun = operands.pop().unwrap();
+                let arg = operands.pop().unwrap();
+                let remaining = fun.num_args() - 1;
+                op = Symbol::PartFn(op.clone(), vec![fun, arg], remaining).into()
+            }
+
+            Symbol::Var(idx) => {
+                op = vars[&Identifier::Var(*idx)].clone();
+            }
+
+            _ => return op.clone(),
         }
 
-        Symbol::Ap => {
-            let fun = operands.pop().unwrap();
-            let arg = operands.pop().unwrap();
-            let remaining = fun.num_args() - 1;
-            Symbol::PartFn(op.clone(), vec![fun, arg], remaining).into()
-        }
-
-        _ => op.clone(),
+        operands = &mut empty;
+        stop = true;
     }
 }
 
 fn apply(op: SymbolCell, operands: Vec<SymbolCell>, vars: &Environment) -> SymbolCell {
     dbg!(&op);
+    if op.deref() == &Symbol::Add {
+        assert!(false);
+    }
 
     match op.deref() {
         Symbol::Lit(_) => op,
@@ -356,13 +376,13 @@ fn apply(op: SymbolCell, operands: Vec<SymbolCell>, vars: &Environment) -> Symbo
         Symbol::Car => op1(&operands, |op| match op.eval(vars) {
             Symbol::Pair(v1, _) => v1.clone(),
             Symbol::List(_) => unreachable!("List should have been lowered"),
-            _ => unreachable!("Mod with invalid operands"),
+            op => unreachable!("Car with invalid operands: {:?}", op),
         }),
 
         Symbol::Cdr => op1(&operands, |op| match op.eval(vars) {
             Symbol::Pair(_, v2) => v2.clone(),
             Symbol::List(_) => unreachable!("List should have been lowered"),
-            _ => unreachable!("Mod with invalid operands"),
+            op => unreachable!("Cdr with invalid operands: {:?}", op),
         }),
 
         Symbol::Nil => Symbol::Nil.into(),
@@ -406,11 +426,11 @@ fn apply(op: SymbolCell, operands: Vec<SymbolCell>, vars: &Environment) -> Symbo
         }
         // Symbol::Interact => {},
         // Symbol::StatelessDraw => {},
-        // pfn @ Symbol::PartFn(_, _, _) => {
-        //     let mut args = operands.clone();
-        //     eval_thunks(&op, &mut args, vars)
-        // }
-        //
+        pfn @ Symbol::PartFn(_, _, _) => {
+            let mut args = operands.clone();
+            eval_thunks(&op, &mut args, vars)
+        }
+
         Symbol::S => {
             // https://en.wikipedia.org/wiki/SKI_combinator_calculus
             // Sxyz = xz(yz)
