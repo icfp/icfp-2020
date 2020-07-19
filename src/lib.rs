@@ -8,7 +8,7 @@ pub mod parser;
 pub fn run<T: Into<String>>(program: T) -> Symbol {
     let statements = parser::parse_as_lines(program.into().as_str());
 
-    ast::interpret(statements)
+    ast::interpret(dbg!(statements))
 }
 
 #[cfg(test)]

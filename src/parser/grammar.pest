@@ -38,14 +38,16 @@ b = { "b" }
 i = { "i" }
 t = { "t" }
 f = { "f" }
+if0 = { "if0" }
 isnil = { "isnil" }
 list = { "(" ~ (symbol ~ ("," ~ symbol)*)? ~ ")" }
 
 symbol = _{ ap | cons | car | cdr | neg | var | number | nil | eq | lt | inc |
- div | mul | add | modulate | demodulate | list | s | c | b | i | t | f | isnil
+ div | mul | add | modulate | demodulate | list | s | c | b | if0 | isnil | i | t | f
 }
 
 id = { var | identifier }
-assignment = { id ~ "=" ~ symbol+ }
+
+assignment = { id ~ "=" ~ symbol+  }
 
 line = { SOI ~ assignment ~ EOI }

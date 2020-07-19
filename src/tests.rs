@@ -21,6 +21,26 @@ fn run_inc_var() {
 }
 
 #[test]
+fn test_laziness() {
+    let symbol = super::run(":1 = ap ap ap if0 1 :1 3");
+    dbg!(&symbol);
+
+    assert_eq!(symbol, Lit(3))
+}
+
+#[test]
+fn run_simple() {
+    let symbol = super::run(
+        ":1 = ap add 1
+:2 = ap ap ap ap if0 1 :2 :1 2
+:3 = :2",
+    );
+    dbg!(&symbol);
+
+    assert_eq!(symbol, Lit(3))
+}
+
+#[test]
 fn run_start() {
     let symbol = super::run(
         ":1029 = ap ap cons 7 ap ap cons 123229502148636 nil

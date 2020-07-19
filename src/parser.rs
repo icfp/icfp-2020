@@ -39,6 +39,7 @@ fn parse_pair(pair: Pair<'_, Rule>) -> Symbol {
         Rule::isnil => Symbol::IsNil,
         Rule::modulate => Symbol::Mod,
         Rule::demodulate => Symbol::Dem,
+        Rule::if0 => Symbol::If0,
         Rule::list => {
             let inner: Vec<_> = pair.into_inner().map(|pair| parse_pair(pair)).collect();
             if inner.is_empty() {

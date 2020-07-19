@@ -283,10 +283,11 @@ fn eval_thunks(op: &SymbolCell, operands: &mut Vec<SymbolCell>, vars: &Environme
             Symbol::PartFn(op.clone(), vec![fun, arg], remaining).into()
         }
 
-        Symbol::Var(idx) => {
-            let i = dbg!(*idx);
-            eval(&vars[&Identifier::Var(i)].clone(), vars)
-        }
+        // breaks laziness
+        // Symbol::Var(idx) => {
+        //     let i = dbg!(*idx);
+        //     eval(&vars[&Identifier::Var(i)].clone(), vars)
+        // }
         _ => op.clone(),
     }
 }
