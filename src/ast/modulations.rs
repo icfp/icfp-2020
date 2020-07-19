@@ -183,17 +183,11 @@ mod tests {
         assert_eq!(modulate_number(-1), val("10100001"));
         assert_eq!(modulate_number(256), val("011110000100000000"));
 
-        assert_eq!(modulate(&Lit(0).into(), |_| unreachable!()), val("010"));
+        assert_eq!(modulate(&Lit(0).into(), |x| x.clone()), val("010"));
+        assert_eq!(modulate(&Lit(1).into(), |x| x.clone()), val("01100001"));
+        assert_eq!(modulate(&Lit(-1).into(), |x| x.clone()), val("10100001"));
         assert_eq!(
-            modulate(&Lit(1).into(), |_| unreachable!()),
-            val("01100001")
-        );
-        assert_eq!(
-            modulate(&Lit(-1).into(), |_| unreachable!()),
-            val("10100001")
-        );
-        assert_eq!(
-            modulate(&Lit(256).into(), |_| unreachable!()),
+            modulate(&Lit(256).into(), |x| x.clone()),
             val("011110000100000000")
         );
     }
