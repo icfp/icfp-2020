@@ -81,7 +81,18 @@ fn run_start() {
 
     assert_eq!(
         symbol,
-        Pair(Lit(4).into(), Pair(Lit(63935).into(), Nil.into()).into())
+        Pair(
+            Lit(4).into(),
+            Closure {
+                captured_arg: Nil.into(),
+                body: Closure {
+                    captured_arg: Lit(63935).into(),
+                    body: Cons.into()
+                }
+                .into()
+            }
+            .into()
+        )
     )
 }
 
@@ -95,6 +106,7 @@ fn run_galaxy() {
 }
 
 #[test]
+#[ignore]
 fn run_galaxy_stack() {
     let lines = super::parser::parse_as_lines(include_str!("../data/galaxy.txt"));
 

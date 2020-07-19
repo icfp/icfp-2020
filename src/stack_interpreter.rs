@@ -6,8 +6,6 @@ use crate::ast::lower_symbols;
 use super::ast::{Canonicalize, Identifier, Number, Statement, Symbol, SymbolCell};
 
 use crate::ast::modulations;
-use crate::ast::Symbol::ReadyForEval;
-use std::borrow::Borrow;
 use std::sync::Mutex;
 
 type StackEnvironment = HashMap<Identifier, SymbolCell>;
@@ -195,7 +193,7 @@ pub fn run_function(
             second
         }
         Symbol::Mod => op1(environment, stack, |env, stack, op| {
-            let mut stack = Mutex::new(stack);
+            let stack = Mutex::new(stack);
             let resolver = |x: &SymbolCell| {
                 let mut mutex = stack.lock().unwrap();
                 resolve(x.clone(), env, &mut mutex)
@@ -633,7 +631,9 @@ mod stack_tests {
         run_test(
             ":1338 = ap ap c ap ap b c ap ap c ap ap b c 1 2 3
              galaxy = :1338",
-            Symbol::C,
+            Symbol::C, // not sure what the right answer should be...
+                       // but seems it could be 1 or C
+                       // was C when galaxy was running...
         )
     }
 }

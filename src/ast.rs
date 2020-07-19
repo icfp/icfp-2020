@@ -1,6 +1,5 @@
 // https://message-from-space.readthedocs.io/en/latest/message7.html
 
-use std::collections::HashMap;
 use std::ops::Deref;
 
 use std::rc::Rc;
