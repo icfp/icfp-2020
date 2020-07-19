@@ -24,13 +24,23 @@ where
 
     // dbg!(&stack);
 
-    assert_eq!(stack.len(), 1);
+    assert_eq!(
+        stack.len(),
+        1,
+        "Stack contains more than one item: {:?}",
+        stack
+    );
 
     let last: SymbolCell = stack.pop().unwrap().into();
-    assert!(match last.deref() {
-        Symbol::ApplyPair(_, _) | Symbol::Var(_) | Symbol::Lit(_) => true,
-        _ => false,
-    });
+    assert!(
+        match last.deref() {
+            Symbol::ApplyPair(_, _) | Symbol::Var(_) | Symbol::Lit(_) | Symbol::T | Symbol::F =>
+                true,
+            _ => false,
+        },
+        "Unexpected last result: {:?}",
+        last
+    );
 
     last
 }
@@ -312,6 +322,7 @@ pub fn run_expression(
             stack,
         ),
         Symbol::Lit(_) => stack.push(symbol.clone()),
+        Symbol::T | Symbol::F => stack.push(symbol.clone()),
         op => unreachable!("Operand: {:?}", op),
     }
 }
@@ -467,6 +478,24 @@ mod stack_tests {
     #[test]
     fn cdr() {
         run_test(":1 = ap cdr ap ap cons 1 2", Lit(2));
+    }
+
+    #[test]
+    fn true_func() {
+        // message 21
+
+        /*
+        ap ap t x0 x1   =   x0
+        ap ap t 1 5   =   1
+        ap ap t t i   =   t
+        ap ap t t ap inc 5   =   t
+        ap ap t ap inc 5 t   =   6
+        */
+
+        run_test(":1 = ap ap t 1 2", Lit(1));
+        run_test(":1 = ap ap t t i", T);
+        run_test(":1 = ap ap t t ap inc 5", T);
+        run_test(":1 = ap ap t ap inc 5 t", Lit(6));
     }
 
     #[test]
