@@ -1,12 +1,10 @@
 // https://message-from-space.readthedocs.io/en/latest/message7.html
 
-use std::collections::{HashMap, VecDeque};
+use std::collections::HashMap;
 use std::ops::Deref;
 use std::rc::Rc;
 
 pub use modulations::{demodulate_string, modulate_to_string};
-
-use crate::ast::Symbol::PartFn;
 
 pub type Number = i64;
 pub type SymbolCell = Rc<Symbol>;
@@ -166,7 +164,7 @@ impl Symbol {
 }
 
 pub fn eval_instructions<T: Into<SymbolCell> + Clone>(symbols: &[T]) -> Symbol {
-    let mut vars = Environment::new();
+    let vars = Environment::new();
 
     let instructions: Vec<SymbolCell> = symbols.iter().map(|sym| sym.clone().into()).collect();
 
@@ -190,17 +188,6 @@ where
     let op1 = operands[len - 1].deref();
     let op2 = operands[len - 0].deref();
     f(op1, op2)
-}
-
-fn op3<F>(operands: &[SymbolCell], f: F) -> SymbolCell
-where
-    F: FnOnce(&Symbol, &Symbol, &Symbol) -> SymbolCell,
-{
-    let len = operands.len() - 1;
-    let op1 = operands[len - 0].deref();
-    let op2 = operands[len - 1].deref();
-    let op3 = operands[len - 2].deref();
-    f(op1, op2, op3)
 }
 
 impl Into<Symbol> for Number {
@@ -235,7 +222,6 @@ fn lit2<T: Into<Symbol>>(
 
 fn force_resolve(op: &SymbolCell, vars: &Environment) -> SymbolCell {
     let mut op = op.clone();
-    let mut stop = false;
     let mut loops = 10000;
 
     loop {
@@ -264,20 +250,11 @@ fn force_resolve(op: &SymbolCell, vars: &Environment) -> SymbolCell {
 
             _ => return op.clone(),
         }
-
-        stop = true;
     }
 }
 
-fn eval_thunks(op: &SymbolCell, operands: &mut Vec<SymbolCell>, vars: &Environment) -> SymbolCell {
+fn eval_thunks(op: &SymbolCell, operands: &mut Vec<SymbolCell>) -> SymbolCell {
     match op.deref() {
-        Symbol::PartFn(ap, args, remaining) => {
-            assert_eq!(ap.deref(), &Symbol::Ap);
-            assert!(*remaining > 0);
-            let arg = vec![op.clone(), operands.pop().unwrap()];
-            Symbol::PartFn(Symbol::Ap.into(), arg, remaining - 1).into()
-        }
-
         Symbol::Ap => {
             let fun = operands.pop().unwrap();
             let arg = operands.pop().unwrap();
@@ -549,11 +526,11 @@ where
     let mut stack = Vec::<SymbolCell>::new();
     let lowered_symbols: Vec<SymbolCell> = lower_symbols(instructions);
     for inst in lowered_symbols.iter().rev() {
-        let val = eval_thunks(inst, &mut stack, vars);
+        let val = eval_thunks(inst, &mut stack);
         stack.push(val);
     }
     dbg!(&stack);
-    // assert_eq!(stack.len(), 1);
+    assert_eq!(stack.len(), 1);
     stack.pop().unwrap().force(vars).into()
 }
 

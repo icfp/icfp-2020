@@ -1,5 +1,4 @@
 use crate::ast::Symbol;
-use std::ops::Deref;
 
 pub mod ast;
 pub mod client;

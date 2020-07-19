@@ -176,7 +176,6 @@ pub fn modulate_to_string(symbol: &Symbol) -> String {
 #[cfg(test)]
 mod tests {
     use super::{Symbol::*, *};
-    use std::ops::Deref;
 
     #[test]
     fn test_modulate_logic() {
