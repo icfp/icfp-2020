@@ -1,4 +1,6 @@
 use super::{Number, Symbol};
+use crate::ast::{Canonicalize, SymbolCell};
+use std::ops::Deref;
 
 pub type Modulated = Vec<bool>;
 
@@ -79,25 +81,17 @@ fn modulate_number(value: Number) -> Modulated {
     return bits;
 }
 
-pub fn modulate(value: &Symbol) -> Modulated {
-    match value {
-        Symbol::Lit(number) => modulate_number(*number),
+pub fn modulate<T: FnMut(&SymbolCell) -> SymbolCell + Clone>(
+    value: &SymbolCell,
+    mut resolver: T,
+) -> Modulated {
+    match resolver(value).canonicalize().deref() {
+        &Symbol::Lit(number) => modulate_number(number),
         Symbol::Nil => modulate_constants::NIL.to_vec(),
-        Symbol::List(symbols) => {
-            let mut vec = symbols.iter().fold(
-                modulate_constants::MODULATED_LIST.to_vec(),
-                |mut vec, symbol| {
-                    vec.append(&mut modulate(symbol));
-                    vec
-                },
-            );
-            vec.extend_from_slice(&modulate_constants::NIL);
-            vec
-        }
         Symbol::Pair(left, right) => {
             let mut vec = modulate_constants::MODULATED_LIST.to_vec();
-            vec.extend_from_slice(&modulate(&left));
-            vec.extend_from_slice(&modulate(&right));
+            vec.extend_from_slice(&modulate(left, resolver.clone()));
+            vec.extend_from_slice(&modulate(right, resolver));
             vec
         }
         _ => unimplemented!("Not implemented for {:?} yet", value),
@@ -166,7 +160,7 @@ pub fn demodulate_string(s: &str) -> Symbol {
 }
 
 pub fn modulate_to_string(symbol: &Symbol) -> String {
-    modulate(symbol)
+    modulate(&symbol.into(), |x| x.clone())
         .iter()
         .map(|&b| if b { "1" } else { "0" })
         .collect::<Vec<&str>>()
@@ -189,10 +183,19 @@ mod tests {
         assert_eq!(modulate_number(-1), val("10100001"));
         assert_eq!(modulate_number(256), val("011110000100000000"));
 
-        assert_eq!(modulate(&Lit(0)), val("010"));
-        assert_eq!(modulate(&Lit(1)), val("01100001"));
-        assert_eq!(modulate(&Lit(-1)), val("10100001"));
-        assert_eq!(modulate(&Lit(256)), val("011110000100000000"));
+        assert_eq!(modulate(&Lit(0).into(), |_| unreachable!()), val("010"));
+        assert_eq!(
+            modulate(&Lit(1).into(), |_| unreachable!()),
+            val("01100001")
+        );
+        assert_eq!(
+            modulate(&Lit(-1).into(), |_| unreachable!()),
+            val("10100001")
+        );
+        assert_eq!(
+            modulate(&Lit(256).into(), |_| unreachable!()),
+            val("011110000100000000")
+        );
     }
 
     #[test]

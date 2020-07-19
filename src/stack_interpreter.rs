@@ -7,6 +7,8 @@ use super::ast::{Canonicalize, Identifier, Number, Statement, Symbol, SymbolCell
 
 use crate::ast::modulations;
 use crate::ast::Symbol::ReadyForEval;
+use std::borrow::Borrow;
+use std::sync::Mutex;
 
 type StackEnvironment = HashMap<Identifier, SymbolCell>;
 
@@ -193,7 +195,13 @@ pub fn run_function(
             second
         }
         Symbol::Mod => op1(environment, stack, |env, stack, op| {
-            Symbol::Modulated(modulations::modulate(resolve(op, env, stack).deref())).into()
+            let mut stack = Mutex::new(stack);
+            let resolver = |x: &SymbolCell| {
+                let mut mutex = stack.lock().unwrap();
+                resolve(x.clone(), env, &mut mutex)
+            };
+            let vec = modulations::modulate(&op, resolver);
+            Symbol::Modulated(vec).into()
         }),
         Symbol::Dem => op1(environment, stack, |env, stack, op| {
             match resolve(op, env, stack).deref() {
@@ -345,7 +353,20 @@ pub fn run_expression(
             // :3 = cons
             Symbol::Closure { .. } => op = sym.clone(),
             _ if op != sym && stack.len() >= sym.num_args() as usize => op = sym.clone(),
-            _ => return sym,
+            _ => {
+                // :-(
+                return stack
+                    .iter()
+                    .rev()
+                    .take(sym.num_args() as usize)
+                    .fold(sym, |acc, el| {
+                        Symbol::Closure {
+                            captured_arg: el.clone(),
+                            body: acc,
+                        }
+                        .into()
+                    });
+            }
         }
     }
 }
