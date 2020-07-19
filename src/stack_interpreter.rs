@@ -75,7 +75,7 @@ where
 {
     let op1 = stack.pop().unwrap();
     let op2 = stack.pop().unwrap();
-    f(env, stack, op1, op2)
+    f(env, dbg!(stack), op1, op2)
 }
 
 fn op3<F>(env: &StackEnvironment, stack: &mut RuntimeStack, f: F) -> SymbolCell
@@ -99,15 +99,12 @@ fn stack_lit1<T: Into<Symbol>>(
     stack: &mut RuntimeStack,
     f: fn(Number) -> T,
 ) -> SymbolCell {
-    let arg = {
-        let pop = stack.pop().unwrap();
-        run_expression(pop, env, stack)
-    };
-
-    match arg.deref() {
-        Symbol::Lit(x) => f(*x).into().into(),
-        _ => unreachable!("Non-literal operand: {:?}", arg),
-    }
+    op1(env, stack, |env, stack, arg| {
+        match resolve(arg, env, stack).deref() {
+            Symbol::Lit(x) => f(*x).into().into(),
+            arg => unreachable!("Non-literal operand: {:?}", arg),
+        }
+    })
 }
 
 fn stack_lit2<T: Into<Symbol>>(
@@ -115,20 +112,20 @@ fn stack_lit2<T: Into<Symbol>>(
     stack: &mut RuntimeStack,
     f: fn(Number, Number) -> T,
 ) -> SymbolCell {
-    let first = {
-        let pop = stack.pop().unwrap();
-        run_expression(pop, env, stack)
-    };
+    op2(env, stack, |env, stack, first, second| {
+        match (
+            resolve(first, env, stack).deref(),
+            resolve(second, env, stack).deref(),
+        ) {
+            (Symbol::Lit(x), Symbol::Lit(y)) => f(*x, *y).into().into(),
+            args => unreachable!("Non-literal operands: {:?}", args),
+        }
+    })
+}
 
-    let second = {
-        let pop = stack.pop().unwrap();
-        run_expression(pop, env, stack)
-    };
-
-    match (first.deref(), second.deref()) {
-        (Symbol::Lit(x), Symbol::Lit(y)) => f(*x, *y).into().into(),
-        _ => unreachable!("Non-literal operands: {:?}", (first, second)),
-    }
+fn resolve(symbol: SymbolCell, env: &StackEnvironment, stack: &mut RuntimeStack) -> SymbolCell {
+    dbg!(("resolve", &symbol, env, &stack));
+    dbg!(run_expression(symbol, env, stack))
 }
 
 pub fn run_function(
@@ -136,10 +133,6 @@ pub fn run_function(
     environment: &StackEnvironment,
     stack: &mut RuntimeStack,
 ) {
-    fn resolve(symbol: SymbolCell, env: &StackEnvironment, stack: &mut RuntimeStack) -> SymbolCell {
-        run_expression(symbol, env, stack)
-    }
-
     let result = match function.deref() {
         Symbol::Var(id) => run_expression(
             environment[&Identifier::Var(*id)].clone(),
@@ -147,7 +140,6 @@ pub fn run_function(
             stack,
         ),
         Symbol::Lit(_) => function.clone(),
-        Symbol::T | Symbol::F => function.clone(),
         Symbol::Inc => stack_lit1(environment, stack, |x| x + 1),
         Symbol::Dec => stack_lit1(environment, stack, |x| x - 1),
         Symbol::Add => stack_lit2(environment, stack, |x, y| x + y),
@@ -190,13 +182,13 @@ pub fn run_function(
             let first = stack.pop().unwrap();
             let _ = stack.pop().unwrap();
 
-            resolve(first, environment, stack)
+            first
         }
         Symbol::F => {
             let _ = stack.pop().unwrap();
             let second = stack.pop().unwrap();
 
-            resolve(second, environment, stack)
+            second
         }
         Symbol::Mod => op1(environment, stack, |env, stack, op| {
             Symbol::Modulated(modulations::modulate(resolve(op, env, stack).deref())).into()
@@ -263,13 +255,21 @@ pub fn run_function(
             let y = stack.pop().unwrap();
             let z = stack.pop().unwrap();
 
-            let fn0 = Symbol::ReadyForEval(x.clone(), z.clone());
-            let fn1 = Symbol::ReadyForEval(y.clone(), z.clone());
-            let s = Symbol::ReadyForEval(fn0.into(), fn1.into()).into();
             // dbg!(&s);
 
-            run_expression(s, environment, stack);
-            stack.pop().unwrap()
+            Symbol::Closure {
+                captured_arg: Symbol::Closure {
+                    captured_arg: z.clone(),
+                    body: y,
+                }
+                .into(),
+                body: Symbol::Closure {
+                    captured_arg: z,
+                    body: x,
+                }
+                .into(),
+            }
+            .into()
         }
         Symbol::Closure {
             captured_arg: arg,
@@ -307,12 +307,15 @@ pub fn run_function(
             let y = stack.pop().unwrap();
             let z = stack.pop().unwrap();
 
-            let b =
-                Symbol::ReadyForEval(x.clone(), Symbol::ReadyForEval(y.clone(), z.clone()).into())
-                    .into();
-
-            run_expression(b, environment, stack);
-            stack.pop().unwrap()
+            Symbol::Closure {
+                captured_arg: Symbol::Closure {
+                    captured_arg: z,
+                    body: y,
+                }
+                .into(),
+                body: x,
+            }
+            .into()
         }
         func => unimplemented!("Function not supported: {:?}", func),
     };
@@ -326,14 +329,21 @@ pub fn run_expression(
     stack: &mut RuntimeStack,
 ) -> SymbolCell {
     let mut op: SymbolCell = symbol;
+    let mut count = 0;
     loop {
         dbg!(&op);
         dbg!(&stack);
+        if count > 5 {
+            panic!();
+        }
+        count += 1;
         run_function(op.clone(), environment, stack);
-        let sym: SymbolCell = stack.pop().unwrap();
+        let sym: SymbolCell = dbg!(stack.pop().unwrap());
         match sym.deref() {
-            ops if ops.num_args() > 0 => op = sym.clone(),
-            op => return op.into(),
+            // :3 = cons
+            Symbol::Closure { .. } => op = sym.clone(),
+            _ if !stack.is_empty() => op = sym.clone(),
+            _ => return sym,
         }
     }
 }
