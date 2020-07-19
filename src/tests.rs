@@ -1,4 +1,5 @@
 use super::ast::Symbol::*;
+use crate::ast::modulate_to_string;
 
 #[test]
 fn run_inc_1() {
@@ -48,10 +49,7 @@ fn run_start() {
 #[ignore]
 fn run_galaxy() {
     let symbol = super::run(include_str!("../data/galaxy.txt"));
-    dbg!(&symbol);
 
-    assert_eq!(
-        symbol,
-        Pair(Lit(4).into(), Pair(Lit(63935).into(), Nil.into()).into())
-    )
+    //let string = modulate_to_string(&dbg!(symbol));
+    //dbg!(string);
 }

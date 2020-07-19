@@ -4,12 +4,13 @@ use std::collections::{HashMap, VecDeque};
 use std::ops::Deref;
 use std::rc::Rc;
 
-use crate::ast::Symbol::PartFn;
 pub use modulations::{demodulate_string, modulate_to_string};
+
+use crate::ast::Symbol::PartFn;
 
 type Number = i64;
 type SymbolCell = Rc<Symbol>;
-type Environment = HashMap<Identifier, SymbolCell>;
+type Environment = HashMap<Identifier, Vec<SymbolCell>>;
 
 mod modulations;
 
@@ -233,23 +234,28 @@ fn lit2<T: Into<Symbol>>(
 fn force_resolve(op: &SymbolCell, vars: &Environment) -> SymbolCell {
     let mut op = op.clone();
     let mut stop = false;
+    let mut loops = 10000;
 
     loop {
+        if 0 >= loops {
+            panic!("Ahh");
+        }
+        loops -= 1;
+
         match op.deref() {
             Symbol::PartFn(_, args, 0) => match args.split_first() {
                 Some((hd, tl)) => {
-                    dbg!(&args);
+                    // dbg!(&args);
                     let res = apply(hd.clone(), tl.to_vec(), vars);
-                    dbg!(&res);
+                    // dbg!(&res);
                     op = res;
                 }
                 _ => unreachable!(),
             },
 
             Symbol::Var(idx) => {
-                op = vars[&Identifier::Var(*idx)].clone();
+                op = eval(&vars[&Identifier::Var(*idx)].clone(), vars);
             }
-
             Symbol::Pair(head, tail) => {
                 return Symbol::Pair(head.force(vars).into(), tail.force(vars).into()).into();
             }
@@ -277,14 +283,16 @@ fn eval_thunks(op: &SymbolCell, operands: &mut Vec<SymbolCell>, vars: &Environme
             Symbol::PartFn(op.clone(), vec![fun, arg], remaining).into()
         }
 
-        Symbol::Var(idx) => vars[&Identifier::Var(*idx)].clone(),
-
+        Symbol::Var(idx) => {
+            let i = dbg!(*idx);
+            eval(&vars[&Identifier::Var(i)].clone(), vars)
+        }
         _ => op.clone(),
     }
 }
 
 fn apply(op: SymbolCell, operands: Vec<SymbolCell>, vars: &Environment) -> SymbolCell {
-    dbg!(&op);
+    // dbg!(&op);
     match op.deref() {
         Symbol::Lit(_) => op,
         Symbol::Eq => {
@@ -304,7 +312,7 @@ fn apply(op: SymbolCell, operands: Vec<SymbolCell>, vars: &Environment) -> Symbo
 
         Symbol::Add => lit2(operands, vars, |x, y| x + y),
 
-        Symbol::Var(idx) => vars[&Identifier::Var(*idx)].clone(),
+        Symbol::Var(idx) => eval(&vars[&Identifier::Var(*idx)].clone(), vars),
 
         Symbol::Mul => lit2(operands, vars, |x, y| x * y),
 
@@ -427,15 +435,15 @@ fn apply(op: SymbolCell, operands: Vec<SymbolCell>, vars: &Environment) -> Symbo
         Symbol::PartFn(_, args, remaining) => {
             match args.split_first() {
                 Some((hd, tl)) => {
-                    dbg!(&args);
+                    // dbg!(&args);
                     let mut args = Vec::new();
                     args.extend_from_slice(tl);
                     let args_start = operands.len() - (*remaining as usize);
-                    dbg!(&operands);
-                    dbg!(args_start);
+                    // dbg!(&operands);
+                    // dbg!(args_start);
                     args.extend_from_slice(&operands[args_start..]);
-                    let res = apply(hd.clone(), dbg!(args), vars);
-                    dbg!(&res);
+                    let res = apply(hd.clone(), args, vars);
+                    // // dbg!(&res);
                     res
                 }
                 _ => unreachable!(),
@@ -467,7 +475,7 @@ fn apply(op: SymbolCell, operands: Vec<SymbolCell>, vars: &Environment) -> Symbo
                     let s =
                         Symbol::PartFn(Symbol::Ap.into(), vec![fn0.into(), fn1.into()], remaining)
                             .into();
-                    dbg!(&s);
+                    // dbg!(&s);
 
                     s
                 }
@@ -521,36 +529,6 @@ fn apply(op: SymbolCell, operands: Vec<SymbolCell>, vars: &Environment) -> Symbo
     }
 }
 
-pub fn interpret(statements: Vec<Statement>) -> SymbolCell {
-    #[derive(Clone, Debug)]
-    struct Result {
-        environment: Environment,
-        last: Option<SymbolCell>,
-    }
-
-    impl Default for Result {
-        fn default() -> Self {
-            Self {
-                environment: Environment::new(),
-                last: None,
-            }
-        }
-    }
-
-    statements
-        .iter()
-        .fold(Result::default(), |mut acc, statement| {
-            let symbol = eval(&statement.1, &acc.environment);
-            acc.environment.insert(statement.0.clone(), symbol.clone());
-            Result {
-                last: Some(symbol),
-                ..acc
-            }
-        })
-        .last
-        .unwrap()
-}
-
 fn lower_symbols<T>(symbols: &[T]) -> Vec<SymbolCell>
 where
     T: Into<SymbolCell> + Clone,
@@ -574,11 +552,30 @@ where
         stack.push(val);
     }
 
-    dbg!(&stack);
+    // dbg!(&stack);
 
     // assert_eq!(stack.len(), 1);
 
-    stack.pop().unwrap().force(vars).into()
+    stack.pop().unwrap().into()
+}
+
+pub fn interpret(statements: Vec<Statement>) -> Symbol {
+    let mut env = HashMap::new();
+
+    for statement in statements.clone() {
+        env.insert(
+            statement.0,
+            statement
+                .1
+                .clone()
+                .iter()
+                .map(|s| s.clone().into())
+                .collect(),
+        );
+    }
+
+    let symbol = eval(&statements.last().unwrap().1, &env).force(&env);
+    symbol
 }
 
 #[cfg(test)]
