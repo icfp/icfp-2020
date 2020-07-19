@@ -176,6 +176,7 @@ pub fn modulate_to_string(symbol: &Symbol) -> String {
 #[cfg(test)]
 mod tests {
     use super::{Symbol::*, *};
+    use crate::stack_interpreter::eval_instructions;
 
     #[test]
     fn test_modulate_logic() {
@@ -254,14 +255,8 @@ mod tests {
             Pair(Lit(1).into(), Pair(Lit(54214).into(), Nil.into()).into())
         );
 
-        let inc = super::super::eval_instructions(&[
-            Symbol::Ap,
-            Symbol::Inc,
-            Symbol::Ap,
-            Symbol::Car,
-            response,
-        ]);
+        let inc = eval_instructions(&[Symbol::Ap, Symbol::Inc, Symbol::Ap, Symbol::Car, response]);
 
-        dbg!(modulate_to_string(&inc));
+        dbg!(modulate_to_string(dbg!(&inc)));
     }
 }

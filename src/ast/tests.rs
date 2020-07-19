@@ -1,7 +1,26 @@
 use crate::ast::Symbol::*;
-use crate::ast::{eval, eval_instructions, Identifier, Symbol};
-use crate::ast::{Canonicalize, Force};
+use crate::ast::{Canonicalize, Statement, SymbolCell};
+use crate::ast::{Identifier, Symbol};
+use crate::stack_interpreter::{eval_instructions, stack_interpret};
+use std::collections::HashMap;
 use std::ops::Deref;
+
+pub fn eval<T>(instructions: &[T], vars: &HashMap<Identifier, Vec<SymbolCell>>) -> SymbolCell
+where
+    T: Into<Symbol> + Clone,
+{
+    let mut statements: Vec<Statement> = vars
+        .iter()
+        .map(|(k, v)| Statement(k.clone(), v.iter().map(|x| x.deref().clone()).collect()))
+        .collect();
+
+    statements.push(Statement(
+        Identifier::Name("foo".to_string()),
+        instructions.iter().map(|x| x.clone().into()).collect(),
+    ));
+
+    stack_interpret(statements).into()
+}
 
 #[test]
 fn test_modulate() {
@@ -248,8 +267,7 @@ fn message10() {
         &mut vec![(Identifier::Var(0), vec![Lit(42).into()])]
             .into_iter()
             .collect(),
-    )
-    .force(&Default::default());
+    );
 
     assert_eq!(res.clone(), Lit(42).into());
 }
@@ -451,7 +469,13 @@ fn message24() {
     assert_eq!(res, Add);
 
     let res = eval_instructions(&[Ap, I, Ap, Add, Lit(1)]);
-    assert_eq!(res, PartFn(Ap.into(), vec![Add.into(), Lit(1).into()], 1));
+    assert_eq!(
+        res,
+        Closure {
+            body: Add.into(),
+            captured_arg: Lit(1).into()
+        }
+    )
 }
 
 #[test]

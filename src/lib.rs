@@ -8,7 +8,7 @@ pub mod stack_interpreter;
 pub fn run<T: Into<String>>(program: T) -> Symbol {
     let statements = parser::parse_as_lines(program.into().as_str());
 
-    ast::interpret(dbg!(statements))
+    stack_interpreter::stack_interpret(dbg!(statements))
 }
 
 #[cfg(test)]

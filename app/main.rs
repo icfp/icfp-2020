@@ -21,7 +21,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     for _i in 0..50 {
         dbg!(&program);
         let response = dbg!(send_program(&client, &program).await);
-        program = icfp::ast::eval_instructions(&[
+        program = icfp::stack_interpreter::eval_instructions(&[
             Symbol::Ap,
             Symbol::Inc,
             Symbol::Ap,

@@ -141,6 +141,7 @@ pub fn run_function(
         ),
         Symbol::Lit(_) => function.clone(),
         Symbol::Pair(_, _) => function.clone(),
+        Symbol::Modulated(_) => function.clone(),
         Symbol::Inc => stack_lit1(environment, stack, |x| x + 1),
         Symbol::Dec => stack_lit1(environment, stack, |x| x - 1),
         Symbol::Add => stack_lit2(environment, stack, |x, y| x + y),
@@ -369,6 +370,13 @@ pub fn stack_interpret(statements: Vec<Statement>) -> Symbol {
     let result = run(last_rvalue, &env);
 
     result.deref().clone()
+}
+
+pub fn eval_instructions<T: Into<Symbol> + Clone>(symbols: &[T]) -> Symbol {
+    let instructions: Vec<Symbol> = symbols.iter().map(|sym| sym.clone().into()).collect();
+    let statement = Statement(Identifier::Name("foo".to_string()), instructions);
+
+    stack_interpret(vec![statement])
 }
 
 #[cfg(test)]
