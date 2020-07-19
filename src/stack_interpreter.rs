@@ -134,11 +134,7 @@ pub fn run_function(
     stack: &mut RuntimeStack,
 ) {
     let result = match function.deref() {
-        Symbol::Var(id) => run_expression(
-            environment[&Identifier::Var(*id)].clone(),
-            environment,
-            stack,
-        ),
+        Symbol::Var(id) => environment[&Identifier::Var(*id)].clone(),
         Symbol::Lit(_) => function.clone(),
         Symbol::Pair(_, _) => function.clone(),
         Symbol::Modulated(_) => function.clone(),
