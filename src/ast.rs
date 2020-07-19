@@ -4,6 +4,7 @@ use std::collections::{HashMap, VecDeque};
 use std::ops::Deref;
 use std::rc::Rc;
 
+use crate::ast::Symbol::PartFn;
 pub use modulations::{demodulate_string, modulate_to_string};
 
 type Number = i64;
@@ -258,11 +259,11 @@ fn force_resolve(op: &SymbolCell, vars: &Environment) -> SymbolCell {
 
 fn eval_thunks(op: &SymbolCell, operands: &mut Vec<SymbolCell>, vars: &Environment) -> SymbolCell {
     match op.deref() {
-        Symbol::PartFn(_, args, remaining) => {
+        Symbol::PartFn(ap, args, remaining) => {
+            assert_eq!(ap.deref(), &Symbol::Ap);
             assert!(*remaining > 0);
-            let mut vec = args.clone();
-            vec.push(operands.pop().unwrap());
-            Symbol::PartFn(op.clone(), vec, remaining - 1).into()
+            let arg = vec![op.clone(), operands.pop().unwrap()];
+            Symbol::PartFn(Symbol::Ap.into(), arg, remaining - 1).into()
         }
 
         Symbol::Ap => {
@@ -280,10 +281,6 @@ fn eval_thunks(op: &SymbolCell, operands: &mut Vec<SymbolCell>, vars: &Environme
 
 fn apply(op: SymbolCell, operands: Vec<SymbolCell>, vars: &Environment) -> SymbolCell {
     dbg!(&op);
-    if op.deref() == &Symbol::Add {
-        assert!(false);
-    }
-
     match op.deref() {
         Symbol::Lit(_) => op,
         Symbol::Eq => {
@@ -423,9 +420,30 @@ fn apply(op: SymbolCell, operands: Vec<SymbolCell>, vars: &Environment) -> Symbo
         }
         // Symbol::Interact => {},
         // Symbol::StatelessDraw => {},
-        pfn @ Symbol::PartFn(_, _, _) => {
-            let mut args = operands.clone();
-            eval_thunks(&op, &mut args, vars)
+        Symbol::PartFn(_, _, 0) => {
+            unreachable!("PartFn being applied with no remaining");
+            // force_resolve(&op, vars)
+            // :1234 = PartFn(Ap, vec![], 0)
+            // PartFn(Ap, vec![:1234, x], 0)
+        }
+        Symbol::PartFn(_, args, remaining) => {
+            match args.split_first() {
+                Some((hd, tl)) => {
+                    dbg!(&args);
+                    let mut args = Vec::new();
+                    args.extend_from_slice(tl);
+                    let args_start = operands.len() - (*remaining as usize);
+                    dbg!(&operands);
+                    dbg!(args_start);
+                    args.extend_from_slice(&operands[args_start..]);
+                    let res = apply(hd.clone(), args, vars);
+                    dbg!(&res);
+                    res
+                }
+                _ => unreachable!(),
+            }
+            // :1234 = PartFn(Ap, vec![], 0)
+            // PartFn(Ap, vec![:1234, x], 0)
         }
 
         Symbol::S => {

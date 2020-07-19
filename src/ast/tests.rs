@@ -334,8 +334,8 @@ fn message18() {
     //     &mut vec![(0, Lit(42))].into_iter().collect(),
     // );
 
-    // let res = eval_instructions(&[Ap, Ap, Ap, S, Add, Inc, Lit(1)]);
-    // assert_eq!(res, Lit(3));
+    let res = eval_instructions(&[Ap, Ap, Ap, S, Add, Inc, Lit(1)]);
+    assert_eq!(res, Lit(3));
 
     let res = eval_instructions(&[Ap, Ap, Ap, S, Mul, Ap, Add, Lit(1), Lit(6)]);
     assert_eq!(res, Lit(42));
