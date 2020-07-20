@@ -498,23 +498,21 @@ fn message30() {
 
 #[test]
 fn message33() {
-    let res = eval_instructions(&[Ap, Ap, Checkerboard, Lit(4), Lit(4)]);
-    dbg!(&res);
+    let res = eval_instructions(&[Ap, Ap, Checkerboard, Lit(5), Lit(5)]);
+    let res = match res {
+        Image(buffer) => buffer.to_vec(),
+        _ => panic!(),
+    };
+    // dbg!(&res);
 
     assert_eq!(
         res,
-        List(vec![
-            Pair(Lit(0).into(), Lit(0).into()),
-            Pair(Lit(0).into(), Lit(2).into()),
-            Pair(Lit(0).into(), Lit(4).into()),
-            Pair(Lit(2).into(), Lit(0).into()),
-            Pair(Lit(2).into(), Lit(2).into()),
-            Pair(Lit(2).into(), Lit(4).into()),
-            Pair(Lit(4).into(), Lit(0).into()),
-            Pair(Lit(4).into(), Lit(2).into()),
-            Pair(Lit(4).into(), Lit(4).into())
-        ])
-        .canonicalize()
+        vec![0, 255u8]
+            .repeat(13)
+            .iter()
+            .take(25)
+            .map(|x| *x)
+            .collect::<Vec<u8>>()
     )
 }
 

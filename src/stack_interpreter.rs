@@ -5,14 +5,35 @@ use std::sync::Mutex;
 use crate::ast::lower_symbols;
 use crate::ast::modulations;
 
-use super::ast::{Canonicalize, Identifier, Number, Statement, Symbol, SymbolCell};
+use super::ast::{Identifier, Number, Statement, Symbol, SymbolCell};
+use image::{GrayImage, ImageFormat};
+use std::mem;
+use std::time::SystemTime;
 
 type StackEnvironment = HashMap<Identifier, SymbolCell>;
 type RuntimeStack = Vec<SymbolCell>;
 
+trait Effects {
+    fn send(&self, content: String) -> String;
+    fn display(&self, image: &GrayImage);
+}
+
+struct NullEffects();
+
+impl Effects for NullEffects {
+    fn send(&self, content: String) -> String {
+        content
+    }
+
+    fn display(&self, _image: &GrayImage) {
+        // do nothing
+    }
+}
+
 pub struct VM {
     heap: StackEnvironment,
     stack: RuntimeStack,
+    effects: Box<dyn Effects>,
 }
 
 impl VM {
@@ -20,6 +41,7 @@ impl VM {
         Mutex::new(VM {
             heap: StackEnvironment::new(),
             stack: RuntimeStack::new(),
+            effects: Box::from(NullEffects()),
         })
     }
 
@@ -130,20 +152,54 @@ where
     f(op1, op2, op3)
 }
 
-fn stack_lit1<T: Into<Symbol>>(vm: &Mutex<VM>, f: fn(Number) -> T) -> SymbolCell {
+fn stack_lit1<T: Into<SymbolCell>, F: FnOnce(Number) -> T>(vm: &Mutex<VM>, f: F) -> SymbolCell {
     op1(vm, |arg| match vm.resolve(&arg).deref() {
-        Symbol::Lit(x) => f(*x).into().into(),
+        Symbol::Lit(x) => f(*x).into(),
         arg => unreachable!("Non-literal operand: {:?}", arg),
     })
 }
 
-fn stack_lit2<T: Into<Symbol>>(vm: &Mutex<VM>, f: fn(Number, Number) -> T) -> SymbolCell {
+fn stack_lit2<T: Into<SymbolCell>, F: FnOnce(Number, Number) -> T>(
+    vm: &Mutex<VM>,
+    f: F,
+) -> SymbolCell {
     op2(vm, |first, second| {
         match (vm.resolve(&first).deref(), vm.resolve(&second).deref()) {
-            (Symbol::Lit(x), Symbol::Lit(y)) => f(*x, *y).into().into(),
+            (Symbol::Lit(x), Symbol::Lit(y)) => f(*x, *y).into(),
             args => unreachable!("Non-literal operands: {:?}", args),
         }
     })
+}
+
+struct SymbolIter<'a> {
+    vm: &'a Mutex<VM>,
+    symbol: SymbolCell,
+}
+
+impl Iterator for SymbolIter<'_> {
+    type Item = SymbolCell;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let symbol = mem::replace(&mut self.symbol, Symbol::Nil.into());
+
+        match symbol.deref() {
+            Symbol::Nil => None,
+
+            Symbol::Pair(hd, tl) => {
+                self.symbol = tl.clone();
+                Some(self.vm.resolve(hd))
+            }
+
+            _ => {
+                self.symbol = Symbol::Nil.into();
+                Some(self.vm.resolve(&symbol))
+            }
+        }
+    }
+}
+
+fn iter_symbols(vm: &Mutex<VM>, symbol: SymbolCell) -> SymbolIter {
+    SymbolIter { vm, symbol }
 }
 
 pub fn run_function(function: SymbolCell, vm: &Mutex<VM>) {
@@ -152,6 +208,7 @@ pub fn run_function(function: SymbolCell, vm: &Mutex<VM>) {
         Symbol::Lit(_) => function.clone(),
         Symbol::Pair(_, _) => function.clone(),
         Symbol::Modulated(_) => function.clone(),
+        Symbol::Image(_) => function.clone(),
         Symbol::Inc => stack_lit1(vm, |x| x + 1),
         Symbol::Dec => stack_lit1(vm, |x| x - 1),
         Symbol::Add => stack_lit2(vm, |x, y| x + y),
@@ -219,20 +276,63 @@ pub fn run_function(function: SymbolCell, vm: &Mutex<VM>) {
             }
         }),
 
-        // Symbol::Draw => {
+        Symbol::Draw => op1(vm, |x| {
+            let mut image = GrayImage::new(640, 480);
+            for sym in iter_symbols(vm, x) {
+                match sym.deref() {
+                    Symbol::Pair(x, y) => {
+                        let x = vm.resolve(x);
+                        let y = vm.resolve(y);
+                        match (x.deref(), y.deref()) {
+                            (&Symbol::Lit(x), &Symbol::Lit(y)) => {
+                                image.put_pixel(x as u32, y as u32, [255u8].into())
+                            }
+                            _ => panic!(),
+                        }
+                    }
+                    _ => panic!(),
+                }
+            }
+
+            let name = SystemTime::now()
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .unwrap();
+
+            image
+                .save_with_format(format!("/tmp/{}.png", name.as_secs()), ImageFormat::Png)
+                .unwrap();
+
+            Symbol::Image(image).into()
+        }),
+
         Symbol::Checkerboard => stack_lit2(vm, |x, y| {
-            let x_axis = (0..=x).step_by(2);
-            let y_axis = (0..=y).step_by(2);
-            Symbol::List(
-                x_axis
-                    .flat_map(|x| {
-                        y_axis.clone().map(move |y| {
-                            Symbol::Pair(Symbol::Lit(x).into(), Symbol::Lit(y).into())
-                        })
-                    })
-                    .collect::<Vec<_>>(),
-            )
-            .canonicalize()
+            let mut image = GrayImage::new(x as u32, y as u32);
+            for x in 0..x as u32 {
+                for y in 0..y as u32 {
+                    let color = ((x % 2) ^ (y % 2)) as u8;
+                    image.put_pixel(x, y, [255u8 * color].into())
+                }
+            }
+
+            vm.lock().unwrap().effects.deref().display(&image);
+
+            let name = SystemTime::now()
+                .duration_since(SystemTime::UNIX_EPOCH)
+                .unwrap();
+
+            image
+                .save_with_format(format!("/tmp/{}.png", name.as_secs()), ImageFormat::Png)
+                .unwrap();
+
+            // let name = SystemTime::now()
+            //     .duration_since(SystemTime::UNIX_EPOCH)
+            //     .unwrap();
+            //
+            // image
+            //     .save_with_format(format!("/tmp/{}.png", name.as_secs()), ImageFormat::Png)
+            //     .unwrap();
+            //
+            Symbol::Image(image)
         }),
         Symbol::S => {
             // https://en.wikipedia.org/wiki/SKI_combinator_calculus
@@ -350,6 +450,7 @@ pub fn run(symbol: SymbolCell, environment: &StackEnvironment) -> SymbolCell {
     let vm = VM {
         stack: RuntimeStack::new(),
         heap: environment.clone(),
+        effects: Box::from(NullEffects()),
     };
     run_expression(symbol, &Mutex::new(vm))
 }
