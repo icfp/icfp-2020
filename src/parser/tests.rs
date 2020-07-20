@@ -117,20 +117,23 @@ fn parse_list_many_items() {
 
 #[test]
 fn parse_prelude_function() {
-    let input = "yay @x1 @x2 = @x1 ";
+    let input = "yay @x1 @x2 = @x1";
 
     let map = parse_as_lines(input);
 
     use crate::ast::Identifier;
     use crate::ast::Symbol::*;
-    let expected = map!(
-        Identifier::Name("yay".into()) => vec![
-        LoadPreludeArgs(vec![
-          Identifier::PreludeArg("@x1".into()),
-          Identifier::PreludeArg("@x2".into())]),
-         Var(Identifier::PreludeArg("@x1".into()))]
+    let expected = Statement(
+        Identifier::Name("yay".into()),
+        vec![
+            Ap,
+            StoreArg(Identifier::PreludeArg("@x1".into())).into(),
+            Ap,
+            StoreArg(Identifier::PreludeArg("@x2".into())).into(),
+            Var(Identifier::PreludeArg("@x1".into())),
+        ],
     );
-    assert_eq!(map, expected);
+    assert_eq!(map, vec![expected]);
     println!("{:?}", map);
 }
 

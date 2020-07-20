@@ -114,9 +114,16 @@ pub fn parse_as_lines(input: &str) -> Vec<Statement> {
             fn make_statement(self, symbols: Vec<Symbol>) -> Statement {
                 match self {
                     LValue::Prelude(name, args) => {
-                        let mut body = vec![Symbol::LoadPreludeArgs(args)];
-                        body.extend_from_slice(&symbols);
-                        Statement(name, body)
+                        let mut vec = Vec::new();
+
+                        for arg in args {
+                            vec.push(Symbol::Ap);
+                            vec.push(Symbol::StoreArg(arg));
+                        }
+
+                        vec.extend_from_slice(&symbols);
+
+                        dbg!(Statement(name, vec))
                     }
                     LValue::VarFunc(name) => Statement(name, symbols),
                 }

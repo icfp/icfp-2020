@@ -1,16 +1,16 @@
 // https://message-from-space.readthedocs.io/en/latest/message7.html
 
+use std::fmt::{Debug, Formatter, Result};
 use std::ops::Deref;
-
 use std::rc::Rc;
 
 use image::GrayImage;
+
 pub use modulations::{demodulate_string, modulate_to_string};
-use std::fmt::{Debug, Formatter, Result};
 
 pub type Number = i64;
 
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Eq, PartialEq)]
 pub struct SymbolCell(Rc<Symbol>);
 
 impl From<Symbol> for SymbolCell {
@@ -33,6 +33,12 @@ impl Deref for SymbolCell {
     }
 }
 
+impl Debug for SymbolCell {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+        write!(f, "{:?}", self.0)
+    }
+}
+
 impl Debug for Symbol {
     fn fmt(&self, f: &mut Formatter<'_>) -> Result {
         fn limited(symbol: &Symbol, f: &mut Formatter<'_>, depth: i8) -> Result {
@@ -43,36 +49,37 @@ impl Debug for Symbol {
             match symbol {
                 Symbol::T => write!(f, "t"),
                 Symbol::Lit(v) => write!(f, "{}", v),
-                Symbol::Eq => write!(f, "Eq"),
-                Symbol::Inc => write!(f, "Inc"),
-                Symbol::Dec => write!(f, "Dec"),
-                Symbol::Add => write!(f, "Add"),
-                Symbol::Var(id) => write!(f, "Var({:?})", id),
-                Symbol::Mul => write!(f, "Mul"),
-                Symbol::Div => write!(f, "Div"),
-                Symbol::F => write!(f, "F"),
-                Symbol::Lt => write!(f, "Lt"),
-                Symbol::Mod => write!(f, "Mod"),
-                Symbol::Dem => write!(f, "Dem"),
-                Symbol::Send => write!(f, "Send"),
-                Symbol::Neg => write!(f, "Neg"),
-                Symbol::Ap => write!(f, "Ap"),
-                Symbol::S => write!(f, "S"),
-                Symbol::C => write!(f, "C"),
-                Symbol::B => write!(f, "B"),
-                Symbol::Pwr2 => write!(f, "Pwr2"),
-                Symbol::I => write!(f, "I"),
-                Symbol::Cons => write!(f, "Cons"),
-                Symbol::Car => write!(f, "Car"),
-                Symbol::Cdr => write!(f, "Cdr"),
-                Symbol::Nil => write!(f, "Nil"),
-                Symbol::IsNil => write!(f, "IsNil"),
-                Symbol::Draw => write!(f, "Draw"),
-                Symbol::Checkerboard => write!(f, "Checkerboard"),
-                Symbol::MultipleDraw => write!(f, "MultipleDraw"),
-                Symbol::If0 => write!(f, "If0"),
-                Symbol::Interact => write!(f, "Interact"),
-                Symbol::StatelessDraw => write!(f, "StatelessDraw"),
+                Symbol::Eq => write!(f, "eq"),
+                Symbol::Inc => write!(f, "inc"),
+                Symbol::Dec => write!(f, "dec"),
+                Symbol::Add => write!(f, "add"),
+                Symbol::Var(id) => write!(f, "{:?}", id),
+                Symbol::Mul => write!(f, "mul"),
+                Symbol::Div => write!(f, "div"),
+                Symbol::F => write!(f, "f"),
+                Symbol::Lt => write!(f, "lt"),
+                Symbol::Mod => write!(f, "mod"),
+                Symbol::Dem => write!(f, "dem"),
+                Symbol::Send => write!(f, "send"),
+                Symbol::Neg => write!(f, "neg"),
+                Symbol::Ap => write!(f, "ap"),
+                Symbol::S => write!(f, "s"),
+                Symbol::C => write!(f, "c"),
+                Symbol::B => write!(f, "b"),
+                Symbol::Pwr2 => write!(f, "pwr2"),
+                Symbol::I => write!(f, "i"),
+                Symbol::Cons => write!(f, "cons"),
+                Symbol::Car => write!(f, "car"),
+                Symbol::Cdr => write!(f, "cdr"),
+                Symbol::Nil => write!(f, "nil"),
+                Symbol::IsNil => write!(f, "isnil"),
+                Symbol::Draw => write!(f, "draw"),
+                Symbol::Checkerboard => write!(f, "checkerboard"),
+                Symbol::MultipleDraw => write!(f, "multipledraw"),
+                Symbol::If0 => write!(f, "if0"),
+                Symbol::Interact => write!(f, "interact"),
+                Symbol::StatelessDraw => write!(f, "statelessdraw"),
+
                 Symbol::Modulated(m) => {
                     write!(f, "modulated(")?;
                     write!(f, "{:?}", m)?;
@@ -105,17 +112,15 @@ impl Debug for Symbol {
                     write!(f, ")")
                 }
                 Symbol::Image(buffer) => write!(f, "image{:?}", buffer.dimensions()),
-                Symbol::LoadPreludeArgs(args) => {
-                    write!(f, "LoadPreludeArg([")?;
-                    for item in args.iter() {
-                        write!(f, "{:?}, ", item)?;
-                    }
-                    write!(f, "])")
+                Symbol::StoreArg(arg) => {
+                    write!(f, "StoreArg(")?;
+                    write!(f, "{:?}, ", arg)?;
+                    write!(f, ")")
                 }
             }
         }
 
-        limited(self, f, 10)
+        limited(self, f, 127)
     }
 }
 
@@ -222,7 +227,7 @@ pub enum Symbol {
     },
     Modulated(modulations::Modulated),
     Image(GrayImage),
-    LoadPreludeArgs(Vec<Identifier>),
+    StoreArg(Identifier),
 }
 
 impl Symbol {
@@ -265,9 +270,7 @@ impl Symbol {
             Symbol::Modulated(_) => 0,
             Symbol::Closure { .. } => 1,
             Symbol::Image(_) => 0,
-            Symbol::LoadPreludeArgs(_args) => 0, // we don't modify the stack size
-                                                 // we only peek from stack
-                                                 // into VM prelude args environment
+            Symbol::StoreArg(_args) => 2,
         }
     }
 }

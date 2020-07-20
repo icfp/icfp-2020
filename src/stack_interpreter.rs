@@ -1,12 +1,11 @@
 use std::collections::HashMap;
 use std::ops::Deref;
+use std::sync::Mutex;
 
 use crate::ast::lower_symbols;
+use crate::ast::modulations;
 
 use super::ast::{Canonicalize, Identifier, Number, Statement, Symbol, SymbolCell};
-
-use crate::ast::modulations;
-use std::sync::Mutex;
 
 type StackEnvironment = HashMap<Identifier, SymbolCell>;
 type RuntimeStack = Vec<SymbolCell>;
@@ -33,7 +32,10 @@ impl VM {
     }
 
     fn var(&self, id: Identifier) -> SymbolCell {
-        self.heap[&id].clone()
+        self.heap
+            .get(&id)
+            .expect(&format!("Can't find {:?} in {:?}", id, self.heap.keys()))
+            .clone()
     }
 }
 
@@ -79,12 +81,13 @@ fn build_symbol_tree(statement: &Statement) -> SymbolCell {
         stack
     );
 
-    stack.pop().unwrap()
+    dbg!(stack).pop().unwrap()
 }
 
 fn lower_applies(op: &SymbolCell, operands: &mut Vec<SymbolCell>) -> SymbolCell {
     match op.deref() {
         Symbol::Ap => {
+            dbg!(&operands);
             let fun = operands.pop().unwrap();
             let arg = operands.pop().unwrap();
             Symbol::Closure {
@@ -145,7 +148,7 @@ fn stack_lit2<T: Into<Symbol>>(vm: &Mutex<VM>, f: fn(Number, Number) -> T) -> Sy
 
 pub fn run_function(function: SymbolCell, vm: &Mutex<VM>) {
     let result = match function.deref() {
-        Symbol::Var(id) => vm.var(id.clone()).clone(),
+        Symbol::Var(id) => dbg!(vm.var(id.clone()).clone()),
         Symbol::Lit(_) => function.clone(),
         Symbol::Pair(_, _) => function.clone(),
         Symbol::Modulated(_) => function.clone(),
@@ -292,6 +295,12 @@ pub fn run_function(function: SymbolCell, vm: &Mutex<VM>) {
                 .into()
             })
         }
+        Symbol::StoreArg(name) => {
+            let func = vm.pop();
+            let value_to_store = vm.pop();
+            vm.lock().unwrap().heap.insert(name.clone(), value_to_store);
+            func // intentional
+        }
         func => unimplemented!("Function not supported: {:?}", func),
     };
 
@@ -371,16 +380,21 @@ pub fn eval_instructions<T: Into<Symbol> + Clone>(symbols: &[T]) -> Symbol {
 
 #[cfg(test)]
 mod stack_tests {
+    use crate::ast::{Statement, Symbol};
     use crate::parser::parse_as_lines;
+    use crate::stack_interpreter::build_symbol_tree;
 
     use super::stack_interpret;
     use super::Symbol::*;
-    use crate::ast::Symbol;
+
+    fn run_lines(lines: Vec<Statement>, expectation: Symbol) {
+        let symbol = dbg!(stack_interpret(lines));
+        assert_eq!(symbol, expectation);
+    }
 
     fn run_test(program: &str, expectation: Symbol) {
         let lines = parse_as_lines(program);
-        let symbol = dbg!(stack_interpret(lines));
-        assert_eq!(symbol, expectation);
+        run_lines(lines, expectation)
     }
 
     #[test]
@@ -415,6 +429,7 @@ mod stack_tests {
         run_test(":1 = ap ap mul 4 0", Lit(0));
         run_test(":1 = ap ap mul 4 1", Lit(4));
     }
+
     #[test]
     fn less_than() {
         // message 12
@@ -628,12 +643,36 @@ mod stack_tests {
         // ap modem x0 = ap dem ap mod x0
         // ap ap f38 x2 x0 = ap ap ap if0 ap car x0 ( ap modem ap car ap cdr x0 , ap multipledraw ap car ap cdr ap cdr x0 ) ap ap ap interact x2 ap modem ap car ap cdr x0 ap send ap car ap cdr ap cdr x0
         // ap ap ap interact x2 x4 x3 = ap ap f38 x2 ap ap x2 x4 x3
-        let mut lines = crate::parser::parse_as_lines(include_str!("ast/prelude.txt"));
+        let mut lines = crate::parser::parse_as_lines(include_str!("ast/prelude-small.txt"));
         // ap ap ap interact x0 nil ap ap vec 0 0 = ( x16 , ap multipledraw x64 )
         // ap ap ap interact x0 x16 ap ap vec x1 x2 = ( x17 , ap multipledraw x65 )
         // ap ap ap interact x0 x17 ap ap vec x3 x4 = ( x18 , ap multipledraw x66 )
         // ap ap ap interact x0 x18 ap ap vec x5 x6 = ( x19 , ap multipledraw x67 )
-        lines.extend_from_slice(&parse_as_lines("run = ap ap interact galaxy nil ( 0, 0 )"));
-        run_test(":1 = ap modem 1", Lit(1));
+        //lines.extend_from_slice(&parse_as_lines("run = ap ap interact galaxy nil ( 0, 0 )"));
+        lines.extend_from_slice(&parse_as_lines(":1 = ap modem 1"));
+        run_lines(lines, Lit(1));
+    }
+
+    #[test]
+    #[ignore]
+    fn prelude_div() {
+        // ap modem x0 = ap dem ap mod x0
+        // ap ap f38 x2 x0 = ap ap ap if0 ap car x0 ( ap modem ap car ap cdr x0 , ap multipledraw ap car ap cdr ap cdr x0 ) ap ap ap interact x2 ap modem ap car ap cdr x0 ap send ap car ap cdr ap cdr x0
+        // ap ap ap interact x2 x4 x3 = ap ap f38 x2 ap ap x2 x4 x3
+        let mut lines = crate::parser::parse_as_lines(include_str!("ast/prelude-small.txt"));
+        // ap ap ap interact x0 nil ap ap vec 0 0 = ( x16 , ap multipledraw x64 )
+        // ap ap ap interact x0 x16 ap ap vec x1 x2 = ( x17 , ap multipledraw x65 )
+        // ap ap ap interact x0 x17 ap ap vec x3 x4 = ( x18 , ap multipledraw x66 )
+        // ap ap ap interact x0 x18 ap ap vec x5 x6 = ( x19 , ap multipledraw x67 )
+        //lines.extend_from_slice(&parse_as_lines("run = ap ap interact galaxy nil ( 0, 0 )"));
+        lines.extend_from_slice(&parse_as_lines(":1 = ap ap customdiv 4 2"));
+        run_lines(lines, Lit(2));
+    }
+
+    #[test]
+    fn build_f83() {
+        let value = "f83 = ap ap ap if0 ap car @X0 ( ap modem ap car ap cdr @X0 , ap multipledraw ap car ap cdr ap cdr @X0 ) ap ap ap interact @X2 ap modem ap car ap cdr @X0 ap send ap car ap cdr ap cdr @X0";
+        let lines = parse_as_lines(value);
+        dbg!(build_symbol_tree(lines.first().unwrap()));
     }
 }
