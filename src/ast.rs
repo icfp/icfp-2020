@@ -105,7 +105,7 @@ impl Debug for Symbol {
                     write!(f, ")")
                 }
                 Symbol::Closure { captured_arg, body } => {
-                    write!(f, "(")?;
+                    write!(f, "(ap ")?;
                     limited(body, f, depth - 1)?;
                     write!(f, " ")?;
                     limited(captured_arg, f, depth - 1)?;
@@ -120,7 +120,7 @@ impl Debug for Symbol {
             }
         }
 
-        limited(self, f, 127)
+        limited(self, f, 10)
     }
 }
 

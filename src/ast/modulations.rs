@@ -84,7 +84,7 @@ fn modulate_number(value: Number) -> Modulated {
 }
 
 pub fn modulate(value: &SymbolCell, vm: &Mutex<VM>) -> Modulated {
-    match vm.resolve(value).canonicalize().deref() {
+    match vm.resolve(&value.canonicalize()).canonicalize().deref() {
         &Symbol::Lit(number) => modulate_number(number),
         Symbol::Nil => modulate_constants::NIL.to_vec(),
         Symbol::Pair(ref left, ref right) => {

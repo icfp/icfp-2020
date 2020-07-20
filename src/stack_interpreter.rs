@@ -113,8 +113,8 @@ fn op2<F>(vm: &Mutex<VM>, f: F) -> SymbolCell
 where
     F: FnOnce(SymbolCell, SymbolCell) -> SymbolCell,
 {
-    let op1 = vm.lock().unwrap().pop();
-    let op2 = vm.lock().unwrap().pop();
+    let op1 = vm.pop();
+    let op2 = vm.pop();
 
     f(op1, op2)
 }

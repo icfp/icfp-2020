@@ -103,7 +103,12 @@ fn run_galaxy_stack() {
     // ap ap ap interact x0 x16 ap ap vec x1 x2 = ( x17 , ap multipledraw x65 )
     // ap ap ap interact x0 x17 ap ap vec x3 x4 = ( x18 , ap multipledraw x66 )
     // ap ap ap interact x0 x18 ap ap vec x5 x6 = ( x19 , ap multipledraw x67 )
-    lines.extend_from_slice(&parse_as_lines("run = ap ap interact galaxy nil ( 0, 0 )"));
+    lines.extend_from_slice(&super::parser::parse_as_lines(include_str!(
+        "ast/prelude.txt"
+    )));
+    lines.extend_from_slice(&parse_as_lines(
+        "run = ap ap ap interact galaxy nil ( 0, 0 )",
+    ));
 
     super::stack_interpreter::stack_interpret(lines);
 }
