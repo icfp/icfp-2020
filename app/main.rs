@@ -5,6 +5,28 @@ use hyper::StatusCode;
 
 use icfp::ast::{demodulate_string, modulate_to_string, Symbol};
 use icfp::client::Client as AlienClient;
+use icfp::stack_interpreter::{Effects, Resolve, VM};
+use image::{GrayImage, ImageFormat};
+use std::ops::Deref;
+use std::time::SystemTime;
+
+struct CliEffects {}
+
+impl Effects for CliEffects {
+    fn send(&self, content: String) -> String {
+        unimplemented!()
+    }
+
+    fn display(&self, image: &GrayImage) {
+        let name = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap();
+
+        image
+            .save_with_format(format!("/tmp/{}.png", name.as_secs()), ImageFormat::Png)
+            .unwrap();
+    }
+}
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
@@ -18,16 +40,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
 
     let mut program = Symbol::List(vec![Symbol::Lit(0)]);
 
+    let vm = VM::new_effects(Box::new(CliEffects {}));
+
     for _i in 0..50 {
         dbg!(&program);
         let response = dbg!(send_program(&client, &program).await);
-        program = icfp::stack_interpreter::eval_instructions(&[
-            Symbol::Ap,
-            Symbol::Inc,
-            Symbol::Ap,
-            Symbol::Car,
-            response,
-        ])
+        program = vm
+            .run_symbols(&[Symbol::Ap, Symbol::Inc, Symbol::Ap, Symbol::Car, response])
+            .deref()
+            .clone();
     }
 
     Ok(())

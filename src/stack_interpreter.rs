@@ -6,14 +6,13 @@ use crate::ast::lower_symbols;
 use crate::ast::modulations;
 
 use super::ast::{Identifier, Number, Statement, Symbol, SymbolCell};
-use image::{GrayImage, ImageFormat};
+use image::GrayImage;
 use std::mem;
-use std::time::SystemTime;
 
 type StackEnvironment = HashMap<Identifier, SymbolCell>;
 type RuntimeStack = Vec<SymbolCell>;
 
-trait Effects {
+pub trait Effects {
     fn send(&self, content: String) -> String;
     fn display(&self, image: &GrayImage);
 }
@@ -37,6 +36,14 @@ pub struct VM {
 }
 
 impl VM {
+    pub fn new_effects(effects: Box<dyn Effects>) -> Mutex<Self> {
+        Mutex::new(VM {
+            heap: StackEnvironment::new(),
+            stack: RuntimeStack::new(),
+            effects,
+        })
+    }
+
     pub fn new() -> Mutex<Self> {
         Mutex::new(VM {
             heap: StackEnvironment::new(),
@@ -59,6 +66,12 @@ impl VM {
             .expect(&format!("Can't find {:?} in {:?}", id, self.heap.keys()))
             .clone()
     }
+
+    fn load(&mut self, statement: Statement) {
+        let rv = dbg!(build_symbol_tree(&statement));
+
+        self.heap.insert(statement.0, rv);
+    }
 }
 
 pub trait Resolve {
@@ -66,6 +79,8 @@ pub trait Resolve {
     fn pop(&self) -> SymbolCell;
     fn push(&self, symbol: SymbolCell);
     fn var(&self, id: Identifier) -> SymbolCell;
+    fn run(&self, symbol: SymbolCell) -> SymbolCell;
+    fn run_symbols<T: Into<Symbol> + Clone>(&self, symbols: &[T]) -> SymbolCell;
 }
 
 impl Resolve for Mutex<VM> {
@@ -83,6 +98,17 @@ impl Resolve for Mutex<VM> {
 
     fn var(&self, id: Identifier) -> SymbolCell {
         self.lock().unwrap().var(id)
+    }
+
+    fn run(&self, symbol: SymbolCell) -> SymbolCell {
+        run_expression(symbol, self)
+    }
+
+    fn run_symbols<T: Into<Symbol> + Clone>(&self, symbols: &[T]) -> SymbolCell {
+        let instructions: Vec<Symbol> = symbols.iter().map(|sym| sym.clone().into()).collect();
+        let statement = Statement(Identifier::Name("unused".to_string()), instructions);
+        let val = build_symbol_tree(&statement);
+        self.run(val)
     }
 }
 
@@ -202,7 +228,7 @@ fn iter_symbols(vm: &Mutex<VM>, symbol: SymbolCell) -> SymbolIter {
     SymbolIter { vm, symbol }
 }
 
-pub fn run_function(function: SymbolCell, vm: &Mutex<VM>) {
+fn run_function(function: SymbolCell, vm: &Mutex<VM>) {
     let result = match function.deref() {
         Symbol::Var(id) => dbg!(vm.var(id.clone()).clone()),
         Symbol::Lit(_) => function.clone(),
@@ -294,13 +320,7 @@ pub fn run_function(function: SymbolCell, vm: &Mutex<VM>) {
                 }
             }
 
-            let name = SystemTime::now()
-                .duration_since(SystemTime::UNIX_EPOCH)
-                .unwrap();
-
-            image
-                .save_with_format(format!("/tmp/{}.png", name.as_secs()), ImageFormat::Png)
-                .unwrap();
+            vm.lock().unwrap().effects.deref().display(&image);
 
             Symbol::Image(image).into()
         }),
@@ -309,29 +329,13 @@ pub fn run_function(function: SymbolCell, vm: &Mutex<VM>) {
             let mut image = GrayImage::new(x as u32, y as u32);
             for x in 0..x as u32 {
                 for y in 0..y as u32 {
-                    let color = ((x % 2) ^ (y % 2)) as u8;
-                    image.put_pixel(x, y, [255u8 * color].into())
+                    let color = (x ^ y) & 0x1;
+                    image.put_pixel(x, y, [255u8 * color as u8].into())
                 }
             }
 
             vm.lock().unwrap().effects.deref().display(&image);
 
-            let name = SystemTime::now()
-                .duration_since(SystemTime::UNIX_EPOCH)
-                .unwrap();
-
-            image
-                .save_with_format(format!("/tmp/{}.png", name.as_secs()), ImageFormat::Png)
-                .unwrap();
-
-            // let name = SystemTime::now()
-            //     .duration_since(SystemTime::UNIX_EPOCH)
-            //     .unwrap();
-            //
-            // image
-            //     .save_with_format(format!("/tmp/{}.png", name.as_secs()), ImageFormat::Png)
-            //     .unwrap();
-            //
             Symbol::Image(image)
         }),
         Symbol::S => {
@@ -407,7 +411,7 @@ pub fn run_function(function: SymbolCell, vm: &Mutex<VM>) {
     vm.push(dbg!(result));
 }
 
-pub fn run_expression(symbol: SymbolCell, vm: &Mutex<VM>) -> SymbolCell {
+fn run_expression(symbol: SymbolCell, vm: &Mutex<VM>) -> SymbolCell {
     let mut op: SymbolCell = symbol;
     let mut count = 0;
     loop {
@@ -446,15 +450,6 @@ pub fn run_expression(symbol: SymbolCell, vm: &Mutex<VM>) -> SymbolCell {
     }
 }
 
-pub fn run(symbol: SymbolCell, environment: &StackEnvironment) -> SymbolCell {
-    let vm = VM {
-        stack: RuntimeStack::new(),
-        heap: environment.clone(),
-        effects: Box::from(NullEffects()),
-    };
-    run_expression(symbol, &Mutex::new(vm))
-}
-
 pub fn stack_interpret(statements: Vec<Statement>) -> Symbol {
     let mut env = StackEnvironment::new();
     let last_statement_id = statements.last().unwrap().0.clone();
@@ -467,7 +462,13 @@ pub fn stack_interpret(statements: Vec<Statement>) -> Symbol {
 
     let last_rvalue = env[&last_statement_id].clone();
 
-    let result = run(last_rvalue, &env);
+    let vm = Mutex::new(VM {
+        stack: RuntimeStack::new(),
+        heap: env,
+        effects: Box::from(NullEffects()),
+    });
+
+    let result = vm.run(last_rvalue);
 
     result.deref().clone()
 }
