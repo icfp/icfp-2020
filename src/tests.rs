@@ -48,7 +48,6 @@ fn run_simple_add() {
 }
 
 #[test]
-#[ignore]
 fn run_simple() {
     let symbol = super::run(
         ":1 = ap add 1
@@ -97,21 +96,8 @@ fn run_start() {
 }
 
 #[test]
-#[ignore]
-fn run_galaxy() {
-    let _symbol = super::run(include_str!("../data/galaxy.txt"));
-
-    //let string = modulate_to_string(&dbg!(symbol));
-    //dbg!(string);
-}
-
-#[test]
-#[ignore]
 fn run_galaxy_stack() {
     let lines = super::parser::parse_as_lines(include_str!("../data/galaxy.txt"));
 
-    let symbol = super::stack_interpreter::stack_interpret(lines);
-
-    let string = super::ast::modulate_to_string(&dbg!(symbol));
-    dbg!(string);
+    super::stack_interpreter::stack_interpret(lines);
 }

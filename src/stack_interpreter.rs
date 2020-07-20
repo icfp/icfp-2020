@@ -9,6 +9,58 @@ use crate::ast::modulations;
 use std::sync::Mutex;
 
 type StackEnvironment = HashMap<Identifier, SymbolCell>;
+type RuntimeStack = Vec<SymbolCell>;
+
+pub struct VM {
+    heap: StackEnvironment,
+    stack: RuntimeStack,
+}
+
+impl VM {
+    pub fn new() -> Mutex<Self> {
+        Mutex::new(VM {
+            heap: StackEnvironment::new(),
+            stack: RuntimeStack::new(),
+        })
+    }
+
+    fn pop(&mut self) -> SymbolCell {
+        self.stack.pop().unwrap()
+    }
+
+    fn push(&mut self, symbol: SymbolCell) {
+        self.stack.push(symbol)
+    }
+
+    fn var(&self, id: Identifier) -> SymbolCell {
+        self.heap[&id].clone()
+    }
+}
+
+pub trait Resolve {
+    fn resolve(&self, symbol: &SymbolCell) -> SymbolCell;
+    fn pop(&self) -> SymbolCell;
+    fn push(&self, symbol: SymbolCell);
+    fn var(&self, id: Identifier) -> SymbolCell;
+}
+
+impl Resolve for Mutex<VM> {
+    fn resolve(&self, symbol: &SymbolCell) -> SymbolCell {
+        dbg!(run_expression(symbol.clone(), self))
+    }
+
+    fn pop(&self) -> SymbolCell {
+        self.lock().unwrap().pop()
+    }
+
+    fn push(&self, symbol: SymbolCell) {
+        self.lock().unwrap().push(symbol)
+    }
+
+    fn var(&self, id: Identifier) -> SymbolCell {
+        self.lock().unwrap().var(id)
+    }
+}
 
 fn build_symbol_tree(statement: &Statement) -> SymbolCell {
     let mut stack = Vec::<SymbolCell>::new();
@@ -20,8 +72,6 @@ fn build_symbol_tree(statement: &Statement) -> SymbolCell {
         stack.push(val);
     }
 
-    // dbg!(&stack);
-
     assert_eq!(
         stack.len(),
         1,
@@ -29,19 +79,7 @@ fn build_symbol_tree(statement: &Statement) -> SymbolCell {
         stack
     );
 
-    let last: SymbolCell = stack.pop().unwrap().into();
-    // assert!(
-    //     match last.deref() {
-    //         Symbol::ApplyPair(_, _) | Symbol::Var(_) | Symbol::Lit(_) | Symbol::T | Symbol::F =>
-    //             true,
-    //         _ => false,
-    //     },
-    //     "Statement({:?}) — Unexpected last result: {:?}",
-    //     statement,
-    //     last
-    // );
-
-    last
+    stack.pop().unwrap()
 }
 
 fn lower_applies(op: &SymbolCell, operands: &mut Vec<SymbolCell>) -> SymbolCell {
@@ -59,168 +97,110 @@ fn lower_applies(op: &SymbolCell, operands: &mut Vec<SymbolCell>) -> SymbolCell 
     }
 }
 
-type RuntimeStack = Vec<SymbolCell>;
-
-fn op1<F>(env: &StackEnvironment, stack: &mut RuntimeStack, f: F) -> SymbolCell
+fn op1<F>(vm: &Mutex<VM>, f: F) -> SymbolCell
 where
-    F: FnOnce(&StackEnvironment, &mut RuntimeStack, SymbolCell) -> SymbolCell,
+    F: FnOnce(SymbolCell) -> SymbolCell,
 {
-    let op = stack.pop().unwrap();
-    f(env, stack, op)
+    let op = vm.pop();
+
+    f(op)
 }
 
-fn op2<F>(env: &StackEnvironment, stack: &mut RuntimeStack, f: F) -> SymbolCell
+fn op2<F>(vm: &Mutex<VM>, f: F) -> SymbolCell
 where
-    F: FnOnce(&StackEnvironment, &mut RuntimeStack, SymbolCell, SymbolCell) -> SymbolCell,
+    F: FnOnce(SymbolCell, SymbolCell) -> SymbolCell,
 {
-    let op1 = stack.pop().unwrap();
-    let op2 = stack.pop().unwrap();
-    f(env, dbg!(stack), op1, op2)
+    let op1 = vm.lock().unwrap().pop();
+    let op2 = vm.lock().unwrap().pop();
+
+    f(op1, op2)
 }
 
-fn op3<F>(env: &StackEnvironment, stack: &mut RuntimeStack, f: F) -> SymbolCell
+fn op3<F>(vm: &Mutex<VM>, f: F) -> SymbolCell
 where
-    F: FnOnce(
-        &StackEnvironment,
-        &mut RuntimeStack,
-        SymbolCell,
-        SymbolCell,
-        SymbolCell,
-    ) -> SymbolCell,
+    F: FnOnce(SymbolCell, SymbolCell, SymbolCell) -> SymbolCell,
 {
-    let op1 = stack.pop().unwrap();
-    let op2 = stack.pop().unwrap();
-    let op3 = stack.pop().unwrap();
-    f(env, stack, op1, op2, op3)
+    let op1 = vm.pop();
+    let op2 = vm.pop();
+    let op3 = vm.pop();
+
+    f(op1, op2, op3)
 }
 
-fn stack_lit1<T: Into<Symbol>>(
-    env: &StackEnvironment,
-    stack: &mut RuntimeStack,
-    f: fn(Number) -> T,
-) -> SymbolCell {
-    op1(env, stack, |env, stack, arg| {
-        match resolve(arg, env, stack).deref() {
-            Symbol::Lit(x) => f(*x).into().into(),
-            arg => unreachable!("Non-literal operand: {:?}", arg),
-        }
+fn stack_lit1<T: Into<Symbol>>(vm: &Mutex<VM>, f: fn(Number) -> T) -> SymbolCell {
+    op1(vm, |arg| match vm.resolve(&arg).deref() {
+        Symbol::Lit(x) => f(*x).into().into(),
+        arg => unreachable!("Non-literal operand: {:?}", arg),
     })
 }
 
-fn stack_lit2<T: Into<Symbol>>(
-    env: &StackEnvironment,
-    stack: &mut RuntimeStack,
-    f: fn(Number, Number) -> T,
-) -> SymbolCell {
-    op2(env, stack, |env, stack, first, second| {
-        match (
-            resolve(first, env, stack).deref(),
-            resolve(second, env, stack).deref(),
-        ) {
+fn stack_lit2<T: Into<Symbol>>(vm: &Mutex<VM>, f: fn(Number, Number) -> T) -> SymbolCell {
+    op2(vm, |first, second| {
+        match (vm.resolve(&first).deref(), vm.resolve(&second).deref()) {
             (Symbol::Lit(x), Symbol::Lit(y)) => f(*x, *y).into().into(),
             args => unreachable!("Non-literal operands: {:?}", args),
         }
     })
 }
 
-fn resolve(symbol: SymbolCell, env: &StackEnvironment, stack: &mut RuntimeStack) -> SymbolCell {
-    dbg!(("resolve", &symbol, env, &stack));
-    dbg!(run_expression(symbol, env, stack))
-}
-
-pub fn run_function(
-    function: SymbolCell,
-    environment: &StackEnvironment,
-    stack: &mut RuntimeStack,
-) {
+pub fn run_function(function: SymbolCell, vm: &Mutex<VM>) {
     let result = match function.deref() {
-        Symbol::Var(id) => environment[&Identifier::Var(*id)].clone(),
+        Symbol::Var(id) => vm.var(Identifier::Var(*id)),
         Symbol::Lit(_) => function.clone(),
         Symbol::Pair(_, _) => function.clone(),
         Symbol::Modulated(_) => function.clone(),
-        Symbol::Inc => stack_lit1(environment, stack, |x| x + 1),
-        Symbol::Dec => stack_lit1(environment, stack, |x| x - 1),
-        Symbol::Add => stack_lit2(environment, stack, |x, y| x + y),
-        Symbol::Mul => stack_lit2(environment, stack, |x, y| x * y),
-        Symbol::Div => stack_lit2(environment, stack, |x, y| x / y),
-        Symbol::If0 => op3(environment, stack, |env, stack, test, first, second| {
-            if resolve(test, env, stack).deref() == &Symbol::Lit(0) {
-                resolve(first, env, stack)
+        Symbol::Inc => stack_lit1(vm, |x| x + 1),
+        Symbol::Dec => stack_lit1(vm, |x| x - 1),
+        Symbol::Add => stack_lit2(vm, |x, y| x + y),
+        Symbol::Mul => stack_lit2(vm, |x, y| x * y),
+        Symbol::Div => stack_lit2(vm, |x, y| x / y),
+        Symbol::If0 => op3(vm, |test, first, second| {
+            if vm.resolve(&test).deref() == &Symbol::Lit(0) {
+                first
             } else {
-                resolve(second, env, stack)
+                second
             }
         }),
-        Symbol::Eq => {
-            let first = {
-                let pop = stack.pop().unwrap();
-                resolve(pop, environment, stack)
-            };
 
-            let second = {
-                let pop = stack.pop().unwrap();
-                resolve(pop, environment, stack)
-            };
-
-            if first.deref() == second.deref() {
+        Symbol::Eq => op2(vm, |x, y| {
+            let x = vm.resolve(&x);
+            let y = vm.resolve(&y);
+            if x.deref() == y.deref() {
                 Symbol::T.into()
             } else {
                 Symbol::F.into()
             }
-        }
-
-        Symbol::Lt => stack_lit2(environment, stack, |x, y| {
-            if x < y {
-                Symbol::T
-            } else {
-                Symbol::F
-            }
         }),
 
-        Symbol::T => {
-            let first = stack.pop().unwrap();
-            let _ = stack.pop().unwrap();
+        Symbol::Lt => stack_lit2(vm, |x, y| if x < y { Symbol::T } else { Symbol::F }),
 
-            first
-        }
-        Symbol::F => {
-            let _ = stack.pop().unwrap();
-            let second = stack.pop().unwrap();
+        Symbol::T => op2(vm, |x, _| x),
 
-            second
-        }
-        Symbol::Mod => op1(environment, stack, |env, stack, op| {
-            let stack = Mutex::new(stack);
-            let resolver = |x: &SymbolCell| {
-                let mut mutex = stack.lock().unwrap();
-                resolve(x.clone(), env, &mut mutex)
-            };
-            let vec = modulations::modulate(&op, resolver);
+        Symbol::F => op2(vm, |_, y| y),
+
+        Symbol::Mod => op1(vm, |op| {
+            let vec = modulations::modulate(&op, vm);
             Symbol::Modulated(vec).into()
         }),
-        Symbol::Dem => op1(environment, stack, |env, stack, op| {
-            match resolve(op, env, stack).deref() {
-                Symbol::Modulated(val) => modulations::demodulate(val.clone()).into(),
-                _ => unreachable!("Dem with invalid operands"),
-            }
+
+        Symbol::Dem => op1(vm, |op| match vm.resolve(&op).deref() {
+            Symbol::Modulated(val) => modulations::demodulate(val.clone()).into(),
+            _ => unreachable!("Dem with invalid operands"),
         }),
         // Symbol::Send => {},
-        Symbol::Neg => stack_lit1(environment, stack, |x| Symbol::Lit(-x.clone())),
+        Symbol::Neg => stack_lit1(vm, |x| Symbol::Lit(-x.clone())),
 
-        Symbol::Pwr2 => stack_lit1(environment, stack, |x| i64::pow(2, x as u32)),
-        Symbol::I => op1(environment, stack, |_, _, op| op.clone()),
+        Symbol::Pwr2 => stack_lit1(vm, |x| i64::pow(2, x as u32)),
+        Symbol::I => op1(vm, |op| op.clone()),
 
-        Symbol::Cons => op2(environment, stack, |_, _, op1, op2| {
-            Symbol::Pair(op1.clone(), op2.clone()).into()
+        Symbol::Cons => op2(vm, |op1, op2| Symbol::Pair(op1.clone(), op2.clone()).into()),
+        Symbol::Car => op1(vm, |op| match vm.resolve(&op).deref() {
+            Symbol::Pair(hd, _) => vm.resolve(hd),
+            Symbol::List(_) => unreachable!("List should have been lowered"),
+            op => unreachable!("Car with invalid operands: {:?}", op),
         }),
-        Symbol::Car => op1(environment, stack, |env, stack, op| {
-            match resolve(op, env, stack).deref() {
-                Symbol::Pair(hd, _) => resolve(hd.clone(), env, stack),
-                Symbol::List(_) => unreachable!("List should have been lowered"),
-                op => unreachable!("Car with invalid operands: {:?}", op),
-            }
-        }),
-        Symbol::Cdr => op1(environment, stack, |env, stack, op| {
-            match resolve(op, env, stack).deref() {
+        Symbol::Cdr => op1(vm, |op| {
+            match vm.resolve(&op).deref() {
                 // this one should be lazy and not resolve, i think...
                 Symbol::Pair(_, tail) => tail.clone(),
                 Symbol::List(_) => unreachable!("List should have been lowered"),
@@ -228,17 +208,16 @@ pub fn run_function(
             }
         }),
         Symbol::Nil => Symbol::Nil.into(),
-        Symbol::IsNil => op1(environment, stack, |env, stack, op| {
-            let op = resolve(op, env, stack);
-            if op.deref() == &Symbol::Nil {
+        Symbol::IsNil => op1(vm, |op| {
+            if vm.resolve(&op).deref() == &Symbol::Nil {
                 Symbol::T.into()
             } else {
                 Symbol::F.into()
             }
         }),
 
-        // Symbol::Draw => {},
-        Symbol::Checkerboard => stack_lit2(environment, stack, |x, y| {
+        // Symbol::Draw => {
+        Symbol::Checkerboard => stack_lit2(vm, |x, y| {
             let x_axis = (0..=x).step_by(2);
             let y_axis = (0..=y).step_by(2);
             Symbol::List(
@@ -255,101 +234,94 @@ pub fn run_function(
         Symbol::S => {
             // https://en.wikipedia.org/wiki/SKI_combinator_calculus
             // Sxyz = xz(yz)
-            let x = stack.pop().unwrap();
-            let y = stack.pop().unwrap();
-            let z = stack.pop().unwrap();
-
-            // dbg!(&s);
-
-            Symbol::Closure {
-                captured_arg: Symbol::Closure {
-                    captured_arg: z.clone(),
-                    body: y,
+            op3(vm, |x, y, z| {
+                Symbol::Closure {
+                    captured_arg: Symbol::Closure {
+                        captured_arg: z.clone(),
+                        body: y,
+                    }
+                    .into(),
+                    body: Symbol::Closure {
+                        captured_arg: z,
+                        body: x,
+                    }
+                    .into(),
                 }
-                .into(),
-                body: Symbol::Closure {
-                    captured_arg: z,
-                    body: x,
-                }
-                .into(),
-            }
-            .into()
+                .into()
+            })
         }
         Symbol::Closure {
             captured_arg: arg,
             body: fun,
         } => {
-            stack.push(arg.clone());
+            vm.push(arg.clone());
             fun.clone()
         }
         Symbol::C => {
             // https://en.wikipedia.org/wiki/B,_C,_K,_W_system
             // C x y z = x z y
 
-            let x = stack.pop().unwrap();
-            let y = stack.pop().unwrap();
-            let z = stack.pop().unwrap();
+            op3(vm, |x, y, z| {
+                let xz_apply = Symbol::Closure {
+                    captured_arg: z,
+                    body: x,
+                };
 
-            let xz_apply = Symbol::Closure {
-                captured_arg: z,
-                body: x,
-            };
-
-            let c = Symbol::Closure {
-                captured_arg: y,
-                body: xz_apply.into(),
-            }
-            .into();
-            c
+                let c = Symbol::Closure {
+                    captured_arg: y,
+                    body: xz_apply.into(),
+                }
+                .into();
+                c
+            })
         }
 
         Symbol::B => {
             // https://en.wikipedia.org/wiki/B,_C,_K,_W_system
             // B x y z = x (y z)
 
-            let x = stack.pop().unwrap();
-            let y = stack.pop().unwrap();
-            let z = stack.pop().unwrap();
-
-            Symbol::Closure {
-                captured_arg: Symbol::Closure {
-                    captured_arg: z,
-                    body: y,
+            op3(vm, |x, y, z| {
+                Symbol::Closure {
+                    captured_arg: Symbol::Closure {
+                        captured_arg: z,
+                        body: y,
+                    }
+                    .into(),
+                    body: x,
                 }
-                .into(),
-                body: x,
-            }
-            .into()
+                .into()
+            })
         }
         func => unimplemented!("Function not supported: {:?}", func),
     };
 
-    stack.push(dbg!(result));
+    vm.push(dbg!(result));
 }
 
-pub fn run_expression(
-    symbol: SymbolCell,
-    environment: &StackEnvironment,
-    stack: &mut RuntimeStack,
-) -> SymbolCell {
+pub fn run_expression(symbol: SymbolCell, vm: &Mutex<VM>) -> SymbolCell {
     let mut op: SymbolCell = symbol;
     let mut count = 0;
     loop {
         dbg!(&op);
-        dbg!(&stack);
+        // dbg!(&vm.stack);
         if count > 1000 {
             panic!();
         }
         count += 1;
-        run_function(op.clone(), environment, stack);
-        let sym: SymbolCell = dbg!(stack.pop().unwrap());
+        run_function(op.clone(), vm);
+        let sym: SymbolCell = dbg!(vm.pop());
         match sym.deref() {
             // :3 = cons
             Symbol::Closure { .. } => op = sym.clone(),
-            _ if op != sym && stack.len() >= sym.num_args() as usize => op = sym.clone(),
+            _ if op != sym && vm.lock().unwrap().stack.len() >= sym.num_args() as usize => {
+                op = sym.clone()
+            }
             _ => {
                 // :-(
-                return stack
+                return vm
+                    .lock()
+                    .unwrap()
+                    .stack
                     .iter()
                     .rev()
                     .take(sym.num_args() as usize)
@@ -366,8 +338,11 @@ pub fn run_expression(
 }
 
 pub fn run(symbol: SymbolCell, environment: &StackEnvironment) -> SymbolCell {
-    let mut stack = RuntimeStack::new();
-    run_expression(symbol, environment, &mut stack)
+    let vm = VM {
+        stack: RuntimeStack::new(),
+        heap: environment.clone(),
+    };
+    run_expression(symbol, &Mutex::new(vm))
 }
 
 pub fn stack_interpret(statements: Vec<Statement>) -> Symbol {
@@ -623,6 +598,7 @@ mod stack_tests {
     }
 
     #[test]
+    #[ignore]
     fn galaxy_first_pass() {
         run_test(
             ":1338 = ap ap c ap ap b c ap ap c ap ap b c 1 2 3

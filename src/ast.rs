@@ -4,6 +4,7 @@ use std::ops::Deref;
 
 use std::rc::Rc;
 
+use image::GrayImage;
 pub use modulations::{demodulate_string, modulate_to_string};
 use std::fmt::{Debug, Formatter, Result};
 
@@ -40,40 +41,40 @@ impl Debug for Symbol {
             }
 
             match symbol {
-                Symbol::T => write!(f, "T"),
+                Symbol::T => write!(f, "t"),
                 Symbol::Lit(v) => write!(f, "{}", v),
-                Symbol::Eq => write!(f, "Eq"),
-                Symbol::Inc => write!(f, "Inc"),
-                Symbol::Dec => write!(f, "Dec"),
-                Symbol::Add => write!(f, "Add"),
-                Symbol::Var(id) => write!(f, "Var({})", id),
-                Symbol::Mul => write!(f, "Mul"),
-                Symbol::Div => write!(f, "Div"),
-                Symbol::F => write!(f, "F"),
-                Symbol::Lt => write!(f, "Lt"),
-                Symbol::Mod => write!(f, "Mod"),
-                Symbol::Dem => write!(f, "Dem"),
-                Symbol::Send => write!(f, "Send"),
-                Symbol::Neg => write!(f, "Neg"),
-                Symbol::Ap => write!(f, "Ap"),
-                Symbol::S => write!(f, "S"),
-                Symbol::C => write!(f, "C"),
-                Symbol::B => write!(f, "B"),
-                Symbol::Pwr2 => write!(f, "Pwr2"),
-                Symbol::I => write!(f, "I"),
-                Symbol::Cons => write!(f, "Cons"),
-                Symbol::Car => write!(f, "Car"),
-                Symbol::Cdr => write!(f, "Cdr"),
-                Symbol::Nil => write!(f, "Nil"),
-                Symbol::IsNil => write!(f, "IsNil"),
-                Symbol::Draw => write!(f, "Draw"),
-                Symbol::Checkerboard => write!(f, "Checkerboard"),
-                Symbol::MultipleDraw => write!(f, "MultipleDraw"),
-                Symbol::If0 => write!(f, "If0"),
-                Symbol::Interact => write!(f, "Interact"),
-                Symbol::StatelessDraw => write!(f, "StatelessDraw"),
+                Symbol::Eq => write!(f, "eq"),
+                Symbol::Inc => write!(f, "inc"),
+                Symbol::Dec => write!(f, "dec"),
+                Symbol::Add => write!(f, "add"),
+                Symbol::Var(id) => write!(f, ":{}", id),
+                Symbol::Mul => write!(f, "mul"),
+                Symbol::Div => write!(f, "div"),
+                Symbol::F => write!(f, "f"),
+                Symbol::Lt => write!(f, "lt"),
+                Symbol::Mod => write!(f, "mod"),
+                Symbol::Dem => write!(f, "dem"),
+                Symbol::Send => write!(f, "send"),
+                Symbol::Neg => write!(f, "neg"),
+                Symbol::Ap => write!(f, "ap"),
+                Symbol::S => write!(f, "s"),
+                Symbol::C => write!(f, "c"),
+                Symbol::B => write!(f, "b"),
+                Symbol::Pwr2 => write!(f, "pwr2"),
+                Symbol::I => write!(f, "i"),
+                Symbol::Cons => write!(f, "cons"),
+                Symbol::Car => write!(f, "car"),
+                Symbol::Cdr => write!(f, "cdr"),
+                Symbol::Nil => write!(f, "nil"),
+                Symbol::IsNil => write!(f, "isnil"),
+                Symbol::Draw => write!(f, "draw"),
+                Symbol::Checkerboard => write!(f, "checkerboard"),
+                Symbol::MultipleDraw => write!(f, "multipledraw"),
+                Symbol::If0 => write!(f, "if0"),
+                Symbol::Interact => write!(f, "interact"),
+                Symbol::StatelessDraw => write!(f, "statelessdraw"),
                 Symbol::Modulated(m) => {
-                    write!(f, "Modulated(")?;
+                    write!(f, "modulated(")?;
                     write!(f, "{:?}", m)?;
                     write!(f, ")")
                 }
@@ -88,29 +89,22 @@ impl Debug for Symbol {
                     }
                     write!(f, "]")
                 }
-                Symbol::PartFn(_op, _args, _remaining) => write!(f, "PartFn(...)"),
                 Symbol::Pair(fst, second) => {
-                    write!(f, "Pair(")?;
+                    write!(f, "pair(")?;
 
                     limited(fst, f, depth - 1)?;
                     write!(f, ", ")?;
                     limited(second, f, depth - 1)?;
                     write!(f, ")")
                 }
-                Symbol::ReadyForEval(fst, second) => {
-                    write!(f, "ApplyPair(")?;
-                    limited(fst, f, depth - 1)?;
-                    write!(f, ", ")?;
-                    limited(second, f, depth - 1)?;
-                    write!(f, ")")
-                }
                 Symbol::Closure { captured_arg, body } => {
-                    write!(f, "Closure(")?;
-                    limited(captured_arg, f, depth - 1)?;
-                    write!(f, ", ")?;
+                    write!(f, "(")?;
                     limited(body, f, depth - 1)?;
+                    write!(f, " ")?;
+                    limited(captured_arg, f, depth - 1)?;
                     write!(f, ")")
                 }
+                Symbol::Image(buffer) => write!(f, "image{:?}", buffer.dimensions()),
             }
         }
 
@@ -202,14 +196,13 @@ pub enum Symbol {
     // 38
     // 39 = interaction protocol
     StatelessDraw,
-    PartFn(SymbolCell, Vec<SymbolCell>, i8),
     Pair(SymbolCell, SymbolCell),
-    ReadyForEval(SymbolCell, SymbolCell),
     Closure {
         captured_arg: SymbolCell,
         body: SymbolCell,
     },
     Modulated(modulations::Modulated),
+    Image(GrayImage),
 }
 
 impl Symbol {
@@ -248,11 +241,10 @@ impl Symbol {
             Symbol::If0 => 3,
             Symbol::Interact => 3,
             Symbol::StatelessDraw => 3,
-            Symbol::PartFn(_, _, i) => *i,
             Symbol::Pair(_, _) => 0,
             Symbol::Modulated(_) => 0,
-            Symbol::ReadyForEval(_, _) => 0,
             Symbol::Closure { .. } => 1,
+            Symbol::Image(_) => 0,
         }
     }
 }
