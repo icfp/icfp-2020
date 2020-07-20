@@ -98,17 +98,32 @@ fn run_start() {
 
 #[test]
 fn run_galaxy_stack() {
-    let mut lines = super::parser::parse_as_lines(include_str!("../data/galaxy.txt"));
+    let mut lines = vec![];
+    // super::parser::parse_as_lines(include_str!("../data/galaxy.txt"));
     // ap ap ap interact x0 nil ap ap vec 0 0 = ( x16 , ap multipledraw x64 )
     // ap ap ap interact x0 x16 ap ap vec x1 x2 = ( x17 , ap multipledraw x65 )
     // ap ap ap interact x0 x17 ap ap vec x3 x4 = ( x18 , ap multipledraw x66 )
     // ap ap ap interact x0 x18 ap ap vec x5 x6 = ( x19 , ap multipledraw x67 )
+    /*
     lines.extend_from_slice(&super::parser::parse_as_lines(include_str!(
         "ast/prelude.txt"
     )));
-    lines.extend_from_slice(&parse_as_lines(
-        "run = ap ap ap interact galaxy nil ( 0, 0 )",
-    ));
+     */
+    //lines.extend_from_slice(&parse_as_lines("run = ap ap galaxy nil (0,0)"));
 
-    super::stack_interpreter::stack_interpret(lines);
+    /*
+        lines.extend_from_slice(&parse_as_lines("stateless_draw = ap ap c ap ap b b ap ap b ap b ap cons 0 ap ap c ap ap b b cons ap ap c cons nil ap ap c ap ap b cons ap ap c cons nil nil
+    run = ap ap stateless_draw nil ( 1, 0 )"));
+         */
+
+    /*
+        lines.extend_from_slice(&parse_as_lines("statefuldraw = ap ap b ap b ap ap s ap ap b ap b ap cons 0 ap ap c ap ap b b cons ap ap c cons nil ap ap c cons nil ap c cons
+    run = ap ap statefuldraw ( ap ap vec 0 0 ) ap ap vec 0 0"));
+         */
+    lines.extend_from_slice(&parse_as_lines("statefuldraw = ( 0 )"));
+
+    // "run = ap ap ap interact galaxy nil ( 0, 0 )",
+
+    dbg!(super::stack_interpreter::stack_interpret(lines));
+    assert!(false);
 }

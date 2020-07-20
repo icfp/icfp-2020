@@ -65,14 +65,19 @@ impl Resolve for Mutex<VM> {
 }
 
 fn build_symbol_tree(statement: &Statement) -> SymbolCell {
+    build_symbol_tree_2(&statement.1)
+}
+
+fn build_symbol_tree_2(symbols: &[Symbol]) -> SymbolCell {
     let mut stack = Vec::<SymbolCell>::new();
 
-    let lowered_symbols: Vec<SymbolCell> = lower_symbols(&statement.1);
-
-    for inst in lowered_symbols.iter().rev() {
+    for inst in symbols.iter().rev() {
         let val = lower_applies(inst, &mut stack);
         stack.push(val);
     }
+
+    let lowered_symbols: Vec<SymbolCell> = lower_symbols(&stack);
+    dbg!(&lowered_symbols);
 
     assert_eq!(
         stack.len(),
@@ -84,8 +89,8 @@ fn build_symbol_tree(statement: &Statement) -> SymbolCell {
     dbg!(stack).pop().unwrap()
 }
 
-fn lower_applies(op: &SymbolCell, operands: &mut Vec<SymbolCell>) -> SymbolCell {
-    match op.deref() {
+fn lower_applies(op: &Symbol, operands: &mut Vec<SymbolCell>) -> SymbolCell {
+    match op {
         Symbol::Ap => {
             dbg!(&operands);
             let fun = operands.pop().unwrap();
@@ -96,7 +101,8 @@ fn lower_applies(op: &SymbolCell, operands: &mut Vec<SymbolCell>) -> SymbolCell 
             }
             .into()
         }
-        _ => op.clone(),
+        Symbol::List(literals) => build_symbol_tree_2(literals),
+        _ => op.clone().into(),
     }
 }
 
@@ -346,12 +352,30 @@ pub fn run_expression(symbol: SymbolCell, vm: &Mutex<VM>) -> SymbolCell {
     }
 }
 
+fn recursive_pair_printer(symbol: SymbolCell, vm: &Mutex<VM>) -> SymbolCell {
+    match symbol.deref() {
+        Symbol::Pair(first, second) => {
+            let rf = vm.resolve(first);
+            let rs = vm.resolve(second);
+
+            dbg!(&rf);
+            let rrf = recursive_pair_printer(rf, vm);
+            dbg!(&rs);
+            let rrs = recursive_pair_printer(rs, vm);
+
+            Symbol::Pair(rrf, rrs).into()
+        }
+        _ => symbol,
+    }
+}
+
 pub fn run(symbol: SymbolCell, environment: &StackEnvironment) -> SymbolCell {
-    let vm = VM {
+    let vm = Mutex::new(VM {
         stack: RuntimeStack::new(),
         heap: environment.clone(),
-    };
-    run_expression(symbol, &Mutex::new(vm))
+    });
+    let pair = run_expression(symbol, &vm);
+    recursive_pair_printer(pair.clone(), &vm)
 }
 
 pub fn stack_interpret(statements: Vec<Statement>) -> Symbol {
