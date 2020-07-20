@@ -1,3 +1,4 @@
+use std::fmt::Debug;
 use std::str::FromStr;
 
 use pest::iterators::Pair;
@@ -15,8 +16,12 @@ fn parse_pair(pair: Pair<'_, Rule>) -> Symbol {
     match pair.as_rule() {
         Rule::ap => Symbol::Ap,
         Rule::var => {
-            let value = pair.into_inner().as_str();
-            Symbol::Var(usize::from_str(&value).unwrap())
+            let var = pair.into_inner().next().unwrap();
+            Symbol::Var(match var.as_rule() {
+                Rule::prelude_var => Identifier::PreludeArg(var.as_str().to_string()),
+                Rule::var_ref | Rule::identifier => Identifier::Name(var.as_str().to_string()),
+                _ => unreachable!(),
+            })
         }
         Rule::cons => Symbol::Cons,
         Rule::car => Symbol::Car,
@@ -49,7 +54,8 @@ fn parse_pair(pair: Pair<'_, Rule>) -> Symbol {
                 Symbol::List(inner)
             }
         }
-        _ => unimplemented!("Unhandled Pair {:?}", pair),
+        Rule::symbol => parse_pair(pair.into_inner().peek().unwrap()),
+        _ => unimplemented!("Unhandled - {:?}", pair),
     }
 }
 
@@ -59,22 +65,44 @@ pub fn parse_as_lines(input: &str) -> Vec<Statement> {
 
     for line in lines {
         let parsed_line = ProgramParser::parse(Rule::line, line)
-            .expect("failed to parse line")
+            .expect(&format!("Failed to parse line: {}", line))
             .next()
             .unwrap();
 
         let assignment: Pairs<'_, _> = parsed_line.into_inner();
         let assignment = assignment.peek().unwrap().into_inner();
 
-        let id = assignment.peek().unwrap();
-        let id = id.into_inner().peek().unwrap();
+        let id = assignment.peek();
+        if !id.is_some() {
+            // empty line
+            continue;
+        }
 
-        let id = match id.as_rule() {
-            Rule::var => {
-                Identifier::Var(usize::from_str(id.into_inner().peek().unwrap().as_str()).unwrap())
+        let lval = id.unwrap();
+
+        enum LValue {
+            VarFunc(Identifier),
+            Prelude(Identifier, Vec<Identifier>),
+        }
+
+        let id = match lval.as_rule() {
+            Rule::var => LValue::VarFunc(Identifier::Name(lval.as_str().to_string())),
+            Rule::func_name => {
+                let mut pairs = lval.into_inner().into_iter();
+                let name = pairs.next().unwrap();
+                let name = Identifier::Name(name.as_str().to_string());
+
+                let args = pairs
+                    .next()
+                    .expect("expected arg names")
+                    .into_inner()
+                    .map(|p| Identifier::PreludeArg(p.as_str().to_string()))
+                    .collect();
+
+                LValue::Prelude(name, args)
             }
-            Rule::identifier => Identifier::Name(id.as_str().to_string()),
-            _ => unimplemented!("Invalid variable id {:?}", id),
+
+            _ => unimplemented!("Invalid variable id {:?}", lval),
         };
 
         let symbols: Vec<Symbol> = assignment
@@ -82,7 +110,20 @@ pub fn parse_as_lines(input: &str) -> Vec<Statement> {
             .map(|pair| parse_pair(pair))
             .collect();
 
-        statements.push(Statement(id, symbols))
+        impl LValue {
+            fn make_statement(self, symbols: Vec<Symbol>) -> Statement {
+                match self {
+                    LValue::Prelude(name, args) => {
+                        let mut body = vec![Symbol::LoadPreludeArgs(args)];
+                        body.extend_from_slice(&symbols);
+                        Statement(name, body)
+                    }
+                    LValue::VarFunc(name) => Statement(name, symbols),
+                }
+            }
+        }
+
+        statements.push(id.make_statement(symbols))
     }
 
     statements

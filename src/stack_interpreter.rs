@@ -145,7 +145,7 @@ fn stack_lit2<T: Into<Symbol>>(vm: &Mutex<VM>, f: fn(Number, Number) -> T) -> Sy
 
 pub fn run_function(function: SymbolCell, vm: &Mutex<VM>) {
     let result = match function.deref() {
-        Symbol::Var(id) => vm.var(Identifier::Var(*id)),
+        Symbol::Var(id) => vm.var(id.clone()).clone(),
         Symbol::Lit(_) => function.clone(),
         Symbol::Pair(_, _) => function.clone(),
         Symbol::Modulated(_) => function.clone(),
@@ -607,5 +607,33 @@ mod stack_tests {
                        // but seems it could be 1 or C
                        // was C when galaxy was running...
         )
+    }
+
+    #[test]
+    fn interact() {
+        // ap modem x0 = ap dem ap mod x0
+        // ap ap f38 x2 x0 = ap ap ap if0 ap car x0 ( ap modem ap car ap cdr x0 , ap multipledraw ap car ap cdr ap cdr x0 ) ap ap ap interact x2 ap modem ap car ap cdr x0 ap send ap car ap cdr ap cdr x0
+        // ap ap ap interact x2 x4 x3 = ap ap f38 x2 ap ap x2 x4 x3
+
+        run_test(
+            "modem = ap dem mod
+               :1 = ap modem 1",
+            Lit(1),
+        );
+    }
+
+    #[test]
+    #[ignore]
+    fn prelude() {
+        // ap modem x0 = ap dem ap mod x0
+        // ap ap f38 x2 x0 = ap ap ap if0 ap car x0 ( ap modem ap car ap cdr x0 , ap multipledraw ap car ap cdr ap cdr x0 ) ap ap ap interact x2 ap modem ap car ap cdr x0 ap send ap car ap cdr ap cdr x0
+        // ap ap ap interact x2 x4 x3 = ap ap f38 x2 ap ap x2 x4 x3
+        let mut lines = crate::parser::parse_as_lines(include_str!("ast/prelude.txt"));
+        // ap ap ap interact x0 nil ap ap vec 0 0 = ( x16 , ap multipledraw x64 )
+        // ap ap ap interact x0 x16 ap ap vec x1 x2 = ( x17 , ap multipledraw x65 )
+        // ap ap ap interact x0 x17 ap ap vec x3 x4 = ( x18 , ap multipledraw x66 )
+        // ap ap ap interact x0 x18 ap ap vec x5 x6 = ( x19 , ap multipledraw x67 )
+        lines.extend_from_slice(&parse_as_lines("run = ap ap interact galaxy nil ( 0, 0 )"));
+        run_test(":1 = ap modem 1", Lit(1));
     }
 }

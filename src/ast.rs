@@ -43,36 +43,36 @@ impl Debug for Symbol {
             match symbol {
                 Symbol::T => write!(f, "t"),
                 Symbol::Lit(v) => write!(f, "{}", v),
-                Symbol::Eq => write!(f, "eq"),
-                Symbol::Inc => write!(f, "inc"),
-                Symbol::Dec => write!(f, "dec"),
-                Symbol::Add => write!(f, "add"),
-                Symbol::Var(id) => write!(f, ":{}", id),
-                Symbol::Mul => write!(f, "mul"),
-                Symbol::Div => write!(f, "div"),
-                Symbol::F => write!(f, "f"),
-                Symbol::Lt => write!(f, "lt"),
-                Symbol::Mod => write!(f, "mod"),
-                Symbol::Dem => write!(f, "dem"),
-                Symbol::Send => write!(f, "send"),
-                Symbol::Neg => write!(f, "neg"),
-                Symbol::Ap => write!(f, "ap"),
-                Symbol::S => write!(f, "s"),
-                Symbol::C => write!(f, "c"),
-                Symbol::B => write!(f, "b"),
-                Symbol::Pwr2 => write!(f, "pwr2"),
-                Symbol::I => write!(f, "i"),
-                Symbol::Cons => write!(f, "cons"),
-                Symbol::Car => write!(f, "car"),
-                Symbol::Cdr => write!(f, "cdr"),
-                Symbol::Nil => write!(f, "nil"),
-                Symbol::IsNil => write!(f, "isnil"),
-                Symbol::Draw => write!(f, "draw"),
-                Symbol::Checkerboard => write!(f, "checkerboard"),
-                Symbol::MultipleDraw => write!(f, "multipledraw"),
-                Symbol::If0 => write!(f, "if0"),
-                Symbol::Interact => write!(f, "interact"),
-                Symbol::StatelessDraw => write!(f, "statelessdraw"),
+                Symbol::Eq => write!(f, "Eq"),
+                Symbol::Inc => write!(f, "Inc"),
+                Symbol::Dec => write!(f, "Dec"),
+                Symbol::Add => write!(f, "Add"),
+                Symbol::Var(id) => write!(f, "Var({:?})", id),
+                Symbol::Mul => write!(f, "Mul"),
+                Symbol::Div => write!(f, "Div"),
+                Symbol::F => write!(f, "F"),
+                Symbol::Lt => write!(f, "Lt"),
+                Symbol::Mod => write!(f, "Mod"),
+                Symbol::Dem => write!(f, "Dem"),
+                Symbol::Send => write!(f, "Send"),
+                Symbol::Neg => write!(f, "Neg"),
+                Symbol::Ap => write!(f, "Ap"),
+                Symbol::S => write!(f, "S"),
+                Symbol::C => write!(f, "C"),
+                Symbol::B => write!(f, "B"),
+                Symbol::Pwr2 => write!(f, "Pwr2"),
+                Symbol::I => write!(f, "I"),
+                Symbol::Cons => write!(f, "Cons"),
+                Symbol::Car => write!(f, "Car"),
+                Symbol::Cdr => write!(f, "Cdr"),
+                Symbol::Nil => write!(f, "Nil"),
+                Symbol::IsNil => write!(f, "IsNil"),
+                Symbol::Draw => write!(f, "Draw"),
+                Symbol::Checkerboard => write!(f, "Checkerboard"),
+                Symbol::MultipleDraw => write!(f, "MultipleDraw"),
+                Symbol::If0 => write!(f, "If0"),
+                Symbol::Interact => write!(f, "Interact"),
+                Symbol::StatelessDraw => write!(f, "StatelessDraw"),
                 Symbol::Modulated(m) => {
                     write!(f, "modulated(")?;
                     write!(f, "{:?}", m)?;
@@ -105,6 +105,13 @@ impl Debug for Symbol {
                     write!(f, ")")
                 }
                 Symbol::Image(buffer) => write!(f, "image{:?}", buffer.dimensions()),
+                Symbol::LoadPreludeArgs(args) => {
+                    write!(f, "LoadPreludeArg([")?;
+                    for item in args.iter() {
+                        write!(f, "{:?}, ", item)?;
+                    }
+                    write!(f, "])")
+                }
             }
         }
 
@@ -120,7 +127,19 @@ pub struct Statement(pub Identifier, pub Vec<Symbol>);
 #[derive(Clone, Debug, Eq, PartialEq, Hash)]
 pub enum Identifier {
     Name(String),
-    Var(usize),
+    PreludeArg(String),
+}
+
+impl Identifier {
+    pub fn id(id: usize) -> Self {
+        Identifier::Name(format!(":{}", id))
+    }
+}
+
+impl From<usize> for Identifier {
+    fn from(value: usize) -> Self {
+        Identifier::id(value)
+    }
 }
 
 #[derive(Clone, Eq, PartialEq)]
@@ -135,7 +154,7 @@ pub enum Symbol {
     // 6
     Add,
     // 7
-    Var(usize),
+    Var(Identifier),
     // 8
     Mul,
     // 9
@@ -203,6 +222,7 @@ pub enum Symbol {
     },
     Modulated(modulations::Modulated),
     Image(GrayImage),
+    LoadPreludeArgs(Vec<Identifier>),
 }
 
 impl Symbol {
@@ -245,6 +265,9 @@ impl Symbol {
             Symbol::Modulated(_) => 0,
             Symbol::Closure { .. } => 1,
             Symbol::Image(_) => 0,
+            Symbol::LoadPreludeArgs(_args) => 0, // we don't modify the stack size
+                                                 // we only peek from stack
+                                                 // into VM prelude args environment
         }
     }
 }

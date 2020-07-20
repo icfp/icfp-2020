@@ -436,6 +436,7 @@ dependencies = [
  "pest_derive",
  "png",
  "reqwest",
+ "svg",
  "tokio",
 ]
 
@@ -1103,6 +1104,12 @@ dependencies = [
  "redox_syscall",
  "winapi 0.3.9",
 ]
+
+[[package]]
+name = "svg"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0b65a64d32a41db2a8081aa03c1ccca26f246ff681add693f8b01307b137da79"
 
 [[package]]
 name = "syn"

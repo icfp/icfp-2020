@@ -8,15 +8,15 @@
 WHITESPACE = _{ " " | "\t" | "\r" | "\n" }
 
 number = @{ "-"? ~ ASCII_DIGIT+ }
-identifier = @{ ASCII_ALPHA ~ ASCII_ALPHANUMERIC* }
+IDENTIFIER_CHARS = @{  ASCII_ALPHANUMERIC+ }
 
 nil = { "nil" }
 
 // :1338
-var = { ":" ~ number }
-
-// galaxy = :1338
-named_function = { identifier ~ "=" ~ var }
+identifier = @{ IDENTIFIER_CHARS }
+var_ref = @{ ":" ~ identifier }
+prelude_var = @{ "@" ~ identifier }
+var = ${ prelude_var | var_ref | identifier }
 
 // Operators
 ap = { "ap"  }
@@ -41,14 +41,21 @@ t = { "t" }
 f = { "f" }
 if0 = { "if0" }
 isnil = { "isnil" }
-list = { "(" ~ (symbol ~ ("," ~ symbol)*)? ~ ")" }
+list = !{ "(" ~ (symbol+ ~ ("," ~ symbol+)*)? ~ ")" }
 
-symbol = _{ ap | cons | car | cdr | dec | neg | var | number | nil | eq | lt |
+instruction = _{
+ ap | cons | car | cdr | dec | neg | nil | eq | lt |
  div | mul | add | modulate | demodulate | list | s | c | b | if0 |  inc | isnil | i | t | f
 }
 
-id = { var | identifier }
+non_instruction = @{ instruction ~ ( " " | EOI ) }
 
-assignment = { id ~ "=" ~ symbol+  }
+symbol = ${ number | !non_instruction ~ var  | instruction }
 
-line = { SOI ~ assignment ~ EOI }
+assignment = { var ~ "=" ~ symbol+  }
+
+args = { prelude_var+ }
+func_name = { identifier ~ args }
+prelude_function = { func_name ~ "=" ~ symbol+  }
+
+line = { SOI ~ (  !prelude_function ~ assignment | prelude_function   )? ~ EOI }

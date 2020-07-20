@@ -1,5 +1,5 @@
+use crate::ast::Identifier::Name;
 use crate::ast::Statement;
-
 use crate::parser::parse_as_lines;
 
 macro_rules! map (
@@ -19,7 +19,7 @@ fn parse_assignment() {
     use crate::ast::Identifier;
     use crate::ast::Symbol::*;
     let expected = map!(
-        Identifier::Var(1029) => vec![Ap, Ap, Cons, Lit(7), Ap, Ap, Cons, Lit(123229502148636), Nil]
+        Identifier::id(1029) => vec![Ap, Ap, Cons, Lit(7), Ap, Ap, Cons, Lit(123229502148636), Nil]
     );
 
     assert_eq!(expected, map);
@@ -35,7 +35,7 @@ fn parse_inc() {
     use crate::ast::Identifier;
     use crate::ast::Symbol::*;
     let expected = map!(
-        Identifier::Var(1029) => vec![Ap, Inc, Lit(300), Nil]
+        Identifier::id(1029) => vec![Ap, Inc, Lit(300), Nil]
     );
     assert_eq!(expected, map);
     println!("{:?}", map);
@@ -50,7 +50,7 @@ fn parse_eq() {
     use crate::ast::Identifier;
     use crate::ast::Symbol::*;
     let expected = map!(
-        Identifier::Name("t".to_string()) => vec![Ap, Ap, Eq, Var(0), Var(0)]
+        Identifier::Name("t".to_string()) => vec![Ap, Ap, Eq, Var(Name(":0".into())), Var(0.into())]
     );
 
     assert_eq!(expected, map);
@@ -66,7 +66,7 @@ fn parse_mod() {
     use crate::ast::Identifier;
     use crate::ast::Symbol::*;
     let expected = map!(
-        Identifier::Var(0) => vec![Ap, Mod, Lit(0)]
+        Identifier::id(0) => vec![Ap, Mod, Lit(0)]
     );
 
     assert_eq!(expected, map);
@@ -82,7 +82,7 @@ fn parse_mod_with_negative() {
     use crate::ast::Identifier;
     use crate::ast::Symbol::*;
     let expected = map!(
-        Identifier::Var(0) => vec![Ap, Mod, Lit(-10)]
+        Identifier::id(0) => vec![Ap, Mod, Lit(-10)]
     );
 
     assert_eq!(expected, map);
@@ -91,12 +91,12 @@ fn parse_mod_with_negative() {
 
 #[test]
 fn parse_list() {
-    let map = parse_as_lines(":1029 = (300) nil");
+    let map = parse_as_lines(":1029 = ( 300 ) nil");
 
     use crate::ast::Identifier;
     use crate::ast::Symbol::*;
     let expected = map!(
-        Identifier::Var(1029) => vec![List(vec![Lit(300)]), Nil]
+        Identifier::id(1029) => vec![List(vec![Lit(300)]), Nil]
     );
     assert_eq!(expected, map);
     println!("{:?}", map);
@@ -104,27 +104,46 @@ fn parse_list() {
 
 #[test]
 fn parse_list_many_items() {
-    let map = parse_as_lines(":1029 = (300, 200, 100) nil");
+    let map = parse_as_lines(":1029 = ( 300, 200, 100 ) nil");
 
     use crate::ast::Identifier;
     use crate::ast::Symbol::*;
     let expected = map!(
-        Identifier::Var(1029) => vec![List(vec![Lit(300), Lit(200), Lit(100)]), Nil]
+        Identifier::id(1029) => vec![List(vec![Lit(300), Lit(200), Lit(100)]), Nil]
     );
     assert_eq!(expected, map);
     println!("{:?}", map);
 }
 
 #[test]
-fn parse_list_nested() {
-    let map = parse_as_lines(":1029 = (300, (200, 100)) nil");
+fn parse_prelude_function() {
+    let input = "yay @x1 @x2 = @x1 ";
+
+    let map = parse_as_lines(input);
 
     use crate::ast::Identifier;
     use crate::ast::Symbol::*;
     let expected = map!(
-        Identifier::Var(1029) => vec![List(vec![Lit(300), List(vec![Lit(200), Lit(100)])]), Nil]
+        Identifier::Name("yay".into()) => vec![
+        LoadPreludeArgs(vec![
+          Identifier::PreludeArg("@x1".into()),
+          Identifier::PreludeArg("@x2".into())]),
+         Var(Identifier::PreludeArg("@x1".into()))]
     );
-    assert_eq!(expected, map);
+    assert_eq!(map, expected);
+    println!("{:?}", map);
+}
+
+#[test]
+fn parse_list_nested() {
+    let map = parse_as_lines(":1029 = ( 300, ( 200, 100 ) ) nil");
+
+    use crate::ast::Identifier;
+    use crate::ast::Symbol::*;
+    let expected = map!(
+        Identifier::id(1029) => vec![List(vec![Lit(300), List(vec![Lit(200), Lit(100)])]), Nil]
+    );
+    assert_eq!(map, expected);
     println!("{:?}", map);
 }
 
@@ -135,7 +154,7 @@ fn parse_empty_list() {
     use crate::ast::Identifier;
     use crate::ast::Symbol::*;
     let expected = map!(
-        Identifier::Var(1029) => vec![Nil]
+        Identifier::id(1029) => vec![Nil]
     );
     assert_eq!(expected, map);
     println!("{:?}", map);

@@ -191,10 +191,10 @@ fn message9() {
     assert_eq!(res, Lit(-6));
 
     let res = eval(
-        &[Ap, Ap, Mul, Var(0), Var(1)],
+        &[Ap, Ap, Mul, Var(0.into()), Var(1.into())],
         &mut vec![
-            (Identifier::Var(0), vec![Lit(42).into()]),
-            (Identifier::Var(1), vec![Lit(7).into()]),
+            (Identifier::id(0), vec![Lit(42).into()]),
+            (Identifier::id(1), vec![Lit(7).into()]),
         ]
         .into_iter()
         .collect(),
@@ -203,8 +203,8 @@ fn message9() {
     assert_eq!(res.deref().clone(), Lit(294));
 
     let res = eval(
-        &[Ap, Ap, Mul, Var(0), Lit(0)],
-        &mut vec![(Identifier::Var(0), vec![Lit(42).into()])]
+        &[Ap, Ap, Mul, Var(0.into()), Lit(0)],
+        &mut vec![(Identifier::id(0), vec![Lit(42).into()])]
             .into_iter()
             .collect(),
     );
@@ -212,8 +212,8 @@ fn message9() {
     assert_eq!(res.deref().clone(), Lit(0));
 
     let res = eval(
-        &[Ap, Ap, Mul, Var(0), Lit(1)],
-        &mut vec![(Identifier::Var(0), vec![Lit(42).into()])]
+        &[Ap, Ap, Mul, Var(0.into()), Lit(1)],
+        &mut vec![(Identifier::id(0), vec![Lit(42).into()])]
             .into_iter()
             .collect(),
     );
@@ -263,8 +263,8 @@ fn message10() {
     assert_eq!(res, Lit(1));
 
     let res = eval(
-        &[Ap, Ap, Div, Var(0), Lit(1)],
-        &mut vec![(Identifier::Var(0), vec![Lit(42).into()])]
+        &[Ap, Ap, Div, Var(0.into()), Lit(1)],
+        &mut vec![(Identifier::id(0), vec![Lit(42).into()])]
             .into_iter()
             .collect(),
     );
@@ -370,8 +370,8 @@ fn message19() {
 #[test]
 fn message20() {
     let res = eval(
-        &[Ap, Ap, Ap, B, Inc, Dec, Var(1)],
-        &mut vec![(Identifier::Var(1), vec![Lit(42).into()])]
+        &[Ap, Ap, Ap, B, Inc, Dec, Var(1.into())],
+        &mut vec![(Identifier::id(1), vec![Lit(42).into()])]
             .into_iter()
             .collect(),
     );
@@ -404,10 +404,10 @@ fn message21() {
 #[test]
 fn message22() {
     let res = eval(
-        &[Ap, Ap, F, Var(1), Var(2)],
+        &[Ap, Ap, F, Var(1.into()), Var(2.into())],
         &mut vec![
-            (Identifier::Var(1), vec![Lit(3).into()]),
-            (Identifier::Var(2), vec![Lit(4).into()]),
+            (Identifier::id(1), vec![Lit(3).into()]),
+            (Identifier::id(2), vec![Lit(4).into()]),
         ]
         .into_iter()
         .collect(),
@@ -451,8 +451,8 @@ fn message24() {
     */
 
     let res = eval(
-        &[Ap, I, Var(0)],
-        &mut vec![(Identifier::Var(0), vec![Lit(42).into()])]
+        &[Ap, I, Var(0.into())],
+        &mut vec![(Identifier::id(0), vec![Lit(42).into()])]
             .into_iter()
             .collect(),
     );
@@ -521,8 +521,8 @@ fn message33() {
 #[test]
 fn message37() {
     let res = eval(
-        &[Ap, Ap, Ap, If0, Lit(0), Var(1), Lit(2)],
-        &mut vec![(Identifier::Var(1), vec![Lit(42).into()])]
+        &[Ap, Ap, Ap, If0, Lit(0), Var(1.into()), Lit(2)],
+        &mut vec![(Identifier::id(1), vec![Lit(42).into()])]
             .into_iter()
             .collect(),
     );
